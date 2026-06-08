@@ -1,39 +1,44 @@
 // trace.js — "trace the number" pre-writing mode. Lightweight + on-device.
-// Each digit 0–9 is a sequence of CHECKPOINTS (normalized to a 100x140 box) the child drags
-// through in order — a guided stroke, not handwriting recognition. Pure data + a tiny helper
-// (no DOM) so it's testable. Single-digit shapes (the core pre-writing skill).
+// Each digit 0–9 is defined as one or more STROKE polylines (x:0–100, y:0–140). The ghost guide
+// is drawn FROM these same polylines and the checkpoint dots sit ON their vertices — so the dots
+// always match the visible numeral shape (this is the fix for the misaligned-dots bug). A guided
+// stroke, not handwriting recognition. Pure data + tiny helpers (no DOM) so it stays testable.
 
-/** Checkpoint polylines per digit (x:0–100, y:0–140). Hand-authored, original. */
-export const DIGIT_PATHS = {
-  0: [[50,18],[82,45],[82,95],[50,122],[18,95],[18,45],[50,18]],
-  1: [[35,32],[55,16],[55,124]],
-  2: [[20,38],[50,16],[80,40],[48,78],[20,124],[82,124]],
-  3: [[22,28],[74,38],[46,72],[76,104],[24,120]],
-  4: [[64,16],[18,84],[88,84],[68,84],[68,124]],
-  5: [[80,18],[28,18],[26,64],[68,70],[74,104],[26,122]],
-  6: [[72,20],[38,52],[24,92],[52,124],[80,98],[54,72],[30,90]],
-  7: [[20,18],[84,18],[44,124]],
-  8: [[50,16],[80,44],[50,70],[20,98],[50,124],[80,98],[50,70],[20,44],[50,16]],
-  9: [[72,52],[42,28],[26,54],[54,72],[78,50],[70,92],[52,124]],
+/** Stroke polylines per digit. Each digit = array of strokes; each stroke = ordered [x,y] points. */
+export const DIGIT_STROKES = {
+  0: [[[50,22],[33,30],[23,55],[23,85],[33,110],[50,118],[67,110],[77,85],[77,55],[67,30],[50,22]]],
+  1: [[[34,40],[52,24],[52,120]]],
+  2: [[[24,42],[42,24],[66,26],[74,48],[54,76],[30,106],[24,120],[80,120]]],
+  3: [[[26,34],[52,24],[72,42],[52,68],[72,92],[58,116],[26,112]]],
+  4: [[[64,22],[24,90],[84,90]], [[66,52],[66,122]]],
+  5: [[[74,24],[34,24],[30,62],[58,58],[76,84],[62,116],[28,112]]],
+  6: [[[70,26],[44,44],[28,78],[30,104],[52,118],[74,104],[76,80],[54,68],[32,80]]],
+  7: [[[24,24],[80,24],[46,120]]],
+  8: [[[50,22],[70,38],[54,66],[30,86],[50,118],[72,96],[50,66],[32,40],[50,22]]],
+  9: [[[70,52],[48,32],[30,52],[48,72],[70,56],[64,96],[50,120]]],
 };
 
 export const TRACE_BOX = { w: 100, h: 140 };
 
-/** Which digit to trace for a value (single-digit pre-writing; uses the value if ≤9). */
+/** Ordered checkpoints across all strokes of a digit (flattened). */
+export function checkpoints(digit) {
+  const strokes = DIGIT_STROKES[digit] || DIGIT_STROKES[1];
+  return strokes.flat();
+}
+
+/** Which digit to trace for a value (single-digit pre-writing). */
 export function traceDigit(value) {
-  return value <= 9 ? value : value % 10; // for >9, trace its last digit shape
+  return value <= 9 ? value : value % 10;
 }
 
 /**
- * Advance through checkpoints: if the pointer (normalized x,y) is within `threshold` of the
- * NEXT checkpoint, return the new index; else the same index. Complete when idx >= points.length.
- * @param {number[][]} points @param {number} idx @param {number} x @param {number} y @param {number} threshold
+ * Advance through checkpoints: if the pointer (normalized x,y) is within `threshold` of the NEXT
+ * checkpoint, return the new index; else the same. Complete when idx >= points.length.
  */
-export function advance(points, idx, x, y, threshold = 22) {
+export function advance(points, idx, x, y, threshold = 24) {
   if (idx >= points.length) return idx;
   const [px, py] = points[idx];
-  const d = Math.hypot(x - px, y - py);
-  return d <= threshold ? idx + 1 : idx;
+  return Math.hypot(x - px, y - py) <= threshold ? idx + 1 : idx;
 }
 
 export function isComplete(points, idx) { return idx >= points.length; }

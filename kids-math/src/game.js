@@ -5,22 +5,21 @@ import { getFact } from './decks/math.js';
 
 export function buildQuestion(id, opts = {}) {
   const mode = opts.mode || 'equation';
-  const max = typeof opts.max === 'number' ? opts.max : 10;
   const rng = opts.rng || Math.random;
   const f = getFact(id);
-  return { id, a: f.a, b: f.b, op: f.op, value: f.value, choices: buildChoices(f.value, max, rng), mode };
+  return { id, a: f.a, b: f.b, op: f.op, value: f.value, choices: buildChoices(f.value, rng), mode };
 }
 
-/** 3 options: correct + 2 nearby distractors within [0,max], shuffled. Always solvable. */
-export function buildChoices(value, max, rng = Math.random) {
+/** 3 options: correct + 2 nearby distractors (value ± small), all ≥ 0, shuffled. Scales to any size. */
+export function buildChoices(value, rng = Math.random) {
   const set = new Set([value]);
   let radius = 1;
-  while (set.size < 3 && radius <= max) {
-    for (const d of [value - radius, value + radius]) { if (d >= 0 && d <= max) set.add(d); if (set.size >= 3) break; }
+  while (set.size < 3 && radius <= value + 6) {
+    for (const d of [value - radius, value + radius]) { if (d >= 0) set.add(d); if (set.size >= 3) break; }
     radius++;
   }
-  let extra = 0;
-  while (set.size < 3 && extra <= Math.max(max, 3)) { set.add(extra); extra++; }
+  let extra = 1;
+  while (set.size < 3) { set.add(value + extra); extra++; }
   const arr = Array.from(set).slice(0, 3);
   for (let i = arr.length - 1; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); [arr[i], arr[j]] = [arr[j], arr[i]]; }
   return arr;

@@ -1,43 +1,50 @@
-// ui.js (Math) — math-specific question screens. Generic UI (home pickers, answer tiles,
-// rewards, done, parent scorecard, gate) comes from the SHARED ui-core (no duplication).
+// ui.js (Math) — math-specific question screens. Generic UI (home pickers, select-then-submit
+// answer panel, celebrations, rewards shelf, done, parent scorecard, gate) comes from the SHARED
+// ui-core (no duplication).
 
-import { RANGES } from './decks/math.js';
+import { LEVELS } from './decks/math.js';
 import { MODES } from './game.js';
 import * as core from '../../shared/ui-core.js';
 
 export const renderDone = core.renderDone;
 export const renderParent = core.renderParent;
+export const renderRewards = core.renderRewards;
 export const gateMount = core.gateMount;
+export const celebrate = core.celebrate;
 
 export function renderHome(mount, state, handlers) {
-  core.renderHome(mount, { title: 'Add & Subtract', mascot: '➕', state, ranges: RANGES, modes: MODES }, handlers);
+  core.renderHome(mount, { title: 'Add & Subtract', mascot: '➕', state, ranges: LEVELS, modes: MODES, pickLabel: 'Pick a level' }, handlers);
 }
 
 const EMOJI = '🍎';
 
-export function renderQuestion(mount, q, progressText, { onAnswer, onHear }) {
+export function renderQuestion(mount, q, progressText, { onSubmit, onHear }) {
   mount.innerHTML = '';
   const wrap = core.el('div', { class: 'screen play' });
   wrap.append(core.el('div', { class: 'progress-dots', 'aria-hidden': 'true' }, progressText));
 
-  if (q.mode === 'equation') {
+  // Objects mode only makes sense for small, countable operands; otherwise show the equation.
+  const countable = q.mode === 'objects' && q.a <= 10 && q.b <= 10;
+
+  if (q.mode === 'equation' || (q.mode === 'objects' && !countable)) {
     wrap.append(core.el('h2', { class: 'prompt' }, 'What is it?'));
     wrap.append(core.el('div', { class: 'equation', 'aria-label': `${q.a} ${q.op} ${q.b}` }, `${q.a} ${q.op} ${q.b} = ?`));
-    wrap.append(core.numeralTiles(q.choices, onAnswer));
   } else if (q.mode === 'hear') {
     wrap.append(core.el('h2', { class: 'prompt' }, 'Listen, then answer'));
     const hear = core.el('button', { class: 'hear-btn', 'aria-label': 'Hear the problem again' }, '🔊  Hear it');
     hear.addEventListener('click', () => onHear());
-    wrap.append(hear, core.numeralTiles(q.choices, onAnswer));
-  } else if (q.mode === 'objects') {
+    wrap.append(hear);
+  } else if (countable) {
     wrap.append(core.el('h2', { class: 'prompt' }, q.op === '-' ? 'How many are left?' : 'How many in all?'));
     const row = core.el('div', { class: 'eq-objects' });
     row.append(group(q.a), core.el('span', { class: 'eq-op' }, q.op), group(q.b), core.el('span', { class: 'eq-op' }, '='), core.el('span', {}, '?'));
     wrap.append(row);
-    wrap.append(core.numeralTiles(q.choices, onAnswer));
   }
+
+  const panel = core.answerPanel(q.choices, { mode: 'numeral', onSubmit });
+  wrap.append(panel.node);
   mount.append(wrap);
-  return core.answerController(wrap);
+  return panel.controller;
 }
 
 function group(n) {

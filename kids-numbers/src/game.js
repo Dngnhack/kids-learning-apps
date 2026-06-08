@@ -7,7 +7,7 @@
 //   'matchAudio' (M3) show a numeral → tap-to-hear options, pick the one that matches
 //   'trace'      (M4) trace the numeral shape (handled in trace.js)
 
-import { getCard, NUMBERS } from './decks/numbers.js';
+import { getCard } from './decks/numbers.js';
 
 /**
  * @param {string} id
@@ -17,7 +17,7 @@ export function buildQuestion(id, opts = {}) {
   const mode = opts.mode || 'count';
   const max = typeof opts.max === 'number' ? opts.max : 10;
   const rng = opts.rng || Math.random;
-  const card = getCard(id) || NUMBERS[0];
+  const card = getCard(id);
   const value = card.value;
   const choices = buildChoices(value, max, rng);
   return { id, value, word: card.word, emoji: card.emoji, count: value, choices, mode };

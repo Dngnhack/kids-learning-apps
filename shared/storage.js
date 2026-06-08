@@ -12,10 +12,11 @@ export function makeStorage(appKey) {
   const KEY = `${appKey}:v1`;
   const KEY_SETTINGS = `${appKey}:settings:v1`;
   const KEY_HISTORY = `${appKey}:history:v1`;
+  const KEY_REWARDS = `${appKey}:rewards:v1`;
   return {
     load() { return readJSON(KEY); },
     save(progress) { writeJSON(KEY, progress); },
-    loadSettings(defaults = { max: 10, mode: '', audio: true }) { return readJSON(KEY_SETTINGS) || defaults; },
+    loadSettings(defaults = { rangeKey: '10', mode: '', audio: true }) { return readJSON(KEY_SETTINGS) || defaults; },
     saveSettings(s) { writeJSON(KEY_SETTINGS, s); },
     appendSession(entry) {
       const h = readJSON(KEY_HISTORY) || [];
@@ -24,6 +25,9 @@ export function makeStorage(appKey) {
       writeJSON(KEY_HISTORY, h);
     },
     getHistory() { return readJSON(KEY_HISTORY) || []; },
-    reset() { for (const k of [KEY, KEY_HISTORY]) { try { localStorage.removeItem(k); } catch (_e) { /* ignore */ } } },
+    // Gamification rewards — on-device only, a high-water mark (never decreases), erasable.
+    loadRewards() { return readJSON(KEY_REWARDS) || { peak: 0 }; },
+    saveRewards(r) { writeJSON(KEY_REWARDS, r); },
+    reset() { for (const k of [KEY, KEY_HISTORY, KEY_REWARDS]) { try { localStorage.removeItem(k); } catch (_e) { /* ignore */ } } },
   };
 }

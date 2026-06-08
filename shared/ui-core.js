@@ -1,7 +1,7 @@
 // ui-core.js — shared generic DOM rendering used by all kids' apps: home
-// (difficulty + mode pickers), answer tiles, reward burst, done, parent scorecard, gate mount.
-// App-specific QUESTION screens live in each app's own ui.js (they render different content).
-// Reduced-motion + mute respected (caller passes audio state; CSS handles prefers-reduced-motion).
+// (level + mode pickers + rewards button), select-then-submit answer panel, celebrations,
+// gentle retry, done, parent scorecard, rewards shelf, gate mount.
+// App-specific QUESTION screens live in each app's own ui.js. Reduced-motion + mute respected.
 
 export function el(tag, attrs = {}, text = '') {
   const n = document.createElement(tag);
@@ -10,94 +10,169 @@ export function el(tag, attrs = {}, text = '') {
   return n;
 }
 
-/** Celebratory burst (5 emojis). */
-export function burst(wrap) {
-  const set = ['⭐', '🎉', '✨', '🌟', '💫'];
-  for (let i = 0; i < 5; i++) {
-    const b = el('div', { class: 'burst', 'aria-hidden': 'true' }, set[i]);
-    b.style.left = 20 + i * 15 + '%';
-    wrap.append(b); setTimeout(() => b.remove(), 1000);
+/** Celebratory particle burst. big = full-screen finale; otherwise a medium correct-answer pop. */
+export function celebrate(host, big = false) {
+  const set = ['⭐', '🎉', '✨', '🌟', '💫', '🎊', '🌈', '💥', '🎈'];
+  const layer = el('div', { class: 'fx' + (big ? ' fx-full' : ''), 'aria-hidden': 'true' });
+  const screen = (host && host.closest && host.closest('.screen')) || host || document.body;
+  screen.append(layer);
+  const n = big ? 22 : 9;
+  for (let i = 0; i < n; i++) {
+    const p = el('div', { class: 'spark' }, set[i % set.length]);
+    p.style.left = Math.round(5 + (i * 90 / n)) + '%';
+    p.style.setProperty('--dx', (((i % 5) - 2) * 16) + 'px');
+    p.style.setProperty('--rise', (big ? 60 + (i % 4) * 14 : 40) + 'vh');
+    p.style.animationDelay = ((i % 6) * 0.05).toFixed(2) + 's';
+    layer.append(p);
   }
+  setTimeout(() => layer.remove(), big ? 1900 : 1100);
 }
 
-/** Numeral answer tiles (tap = answer). Shared by Numbers + Math. */
-export function numeralTiles(choices, onAnswer) {
-  const wrap = el('div', { class: 'choices' });
-  for (const c of choices) {
-    const b = el('button', { class: 'tile', 'aria-label': String(c) }, String(c));
-    b.addEventListener('click', () => onAnswer(c, b));
-    wrap.append(b);
-  }
-  return wrap;
+/** A gentle, encouraging "try again" chip (never red/✗). */
+export function gentleRetry(host) {
+  const prev = host.querySelector('.retry-chip'); if (prev) prev.remove();
+  const chip = el('div', { class: 'retry-chip', 'aria-hidden': 'true' });
+  chip.append(el('span', { class: 'retry-face' }, '🙂'), el('span', {}, ' Try again!'));
+  host.append(chip);
+  setTimeout(() => chip.remove(), 1500);
 }
 
-/** Audio answer tiles: first tap = hear + select; second tap on selected = pick (answer). */
-export function audioTiles(choices, onAnswer, onHear) {
-  const wrap = el('div', { class: 'choices' });
-  for (const c of choices) {
-    const b = el('button', { class: 'atile', 'aria-label': 'hear an option' }, '🔊');
+/**
+ * Select-then-submit answer panel (replaces double-tap). Tap an option to SELECT it; the Check
+ * button enables once something is chosen; Check verifies. mode 'audio' tiles speak on select.
+ * Returns { node, controller }. controller.markCorrect() / markWrongRetry() drive feedback.
+ */
+export function answerPanel(choices, { mode = 'numeral', onSubmit, onHear }) {
+  const wrap = el('div', { class: 'answer' });
+  const grid = el('div', { class: 'choices' });
+  const isAudio = mode === 'audio';
+  const tiles = [];
+  let selected = null, selectedTile = null, locked = false;
+
+  const submit = el('button', { class: 'btn submit-btn', 'aria-label': 'Check the answer' }, '✓  Check');
+  submit.disabled = true;
+
+  choices.forEach((c, i) => {
+    const b = el('button',
+      { class: (isAudio ? 'tile atile' : 'tile') + ' t' + (i % 5), 'aria-label': isAudio ? 'hear an option' : String(c) },
+      isAudio ? '🔊' : String(c));
     b.addEventListener('click', () => {
-      if (b.classList.contains('sel')) { onAnswer(c, b); return; }
-      wrap.querySelectorAll('.atile').forEach((t) => t.classList.remove('sel'));
-      b.classList.add('sel'); onHear(c);
+      if (locked) return;
+      tiles.forEach((t) => t.classList.remove('sel'));
+      b.classList.add('sel'); selected = c; selectedTile = b;
+      submit.disabled = false; submit.classList.add('ready');
+      if (isAudio && onHear) onHear(c);
     });
-    wrap.append(b);
-  }
-  return wrap;
-}
+    tiles.push(b); grid.append(b);
+  });
 
-/** Controller for answer feedback (works for .tile and .atile). */
-export function answerController(wrap) {
-  const tiles = Array.from(wrap.querySelectorAll('.tile, .atile'));
-  return {
-    markCorrect(tile) { tile.classList.add('correct'); tiles.forEach((t) => (t.disabled = true)); burst(wrap); },
-    markWrong(tile) { tile.classList.add('wrong'); setTimeout(() => tile.classList.remove('wrong'), 500); },
+  submit.addEventListener('click', () => { if (selected === null || locked) return; onSubmit(selected); });
+
+  const controller = {
+    selected: () => selected,
+    markCorrect() {
+      locked = true;
+      if (selectedTile) selectedTile.classList.add('correct');
+      tiles.forEach((t) => (t.disabled = true));
+      submit.disabled = true; submit.classList.remove('ready');
+    },
+    markWrongRetry() {
+      if (selectedTile) {
+        const w = selectedTile; w.classList.add('wrong');
+        setTimeout(() => w.classList.remove('wrong', 'sel'), 600);
+      }
+      selected = null; selectedTile = null;
+      submit.disabled = true; submit.classList.remove('ready');
+      gentleRetry(wrap);
+    },
   };
+  wrap.append(grid, submit);
+  return { node: wrap, controller };
 }
 
-/** Home: title + difficulty ranges + mode picker + start + grown-ups. */
-export function renderHome(mount, { title, mascot, state, ranges, modes }, { onStart, onParent, onPickRange, onPickMode }) {
+/** Home: mascot + title + level chips + mode picker + start + rewards + grown-ups. */
+export function renderHome(mount, { title, mascot, state, ranges, modes, pickLabel = 'How high?' }, handlers) {
+  const { onStart, onParent, onPickRange, onPickMode, onRewards } = handlers;
   mount.innerHTML = '';
   const wrap = el('div', { class: 'screen home' });
-  wrap.append(el('div', { class: 'mascot', 'aria-hidden': 'true' }, mascot), el('h1', { class: 'title' }, title));
+  wrap.append(el('div', { class: 'mascot bob', 'aria-hidden': 'true' }, mascot), el('h1', { class: 'title' }, title));
 
-  wrap.append(el('div', { class: 'pick-label' }, 'How high?'));
+  wrap.append(el('div', { class: 'pick-label' }, pickLabel));
   const rwrap = el('div', { class: 'chips' });
   for (const r of ranges) {
-    const b = el('button', { class: 'chip' + (r.max === state.max ? ' on' : '') }, r.label);
-    b.addEventListener('click', () => onPickRange(r.max));
+    const b = el('button', { class: 'chip' + (r.key === state.rangeKey ? ' on' : '') }, r.label);
+    b.addEventListener('click', () => onPickRange(r));
     rwrap.append(b);
   }
   wrap.append(rwrap);
 
   wrap.append(el('div', { class: 'pick-label' }, 'Pick a game'));
   const mwrap = el('div', { class: 'mode-grid' });
-  for (const m of modes) {
-    const b = el('button', { class: 'mode-tile' + (m.id === state.mode ? ' on' : '') });
+  modes.forEach((m, i) => {
+    const b = el('button', { class: 'mode-tile m' + (i % 4) + (m.id === state.mode ? ' on' : '') });
     b.append(el('span', { class: 'mode-emoji', 'aria-hidden': 'true' }, m.emoji), el('span', { class: 'mode-name' }, m.label));
     b.setAttribute('aria-label', m.label + ': ' + m.desc);
     b.addEventListener('click', () => onPickMode(m.id));
     mwrap.append(b);
-  }
+  });
   wrap.append(mwrap);
 
   const start = el('button', { class: 'btn btn-big', 'aria-label': 'Start' }, '▶  Start');
   start.addEventListener('click', onStart);
-  const parent = el('button', { class: 'btn btn-ghost btn-corner', 'aria-label': 'For grown-ups' }, '⚙  Grown-ups');
+  wrap.append(start);
+
+  const row = el('div', { class: 'home-row' });
+  const stars = el('button', { class: 'btn btn-ghost', 'aria-label': 'My stars and stickers' }, '🏆  My Stars');
+  stars.addEventListener('click', onRewards);
+  const parent = el('button', { class: 'btn btn-ghost', 'aria-label': 'For grown-ups' }, '⚙  Grown-ups');
   parent.addEventListener('click', onParent);
-  wrap.append(start, parent);
+  row.append(stars, parent);
+  wrap.append(row);
   mount.append(wrap);
 }
 
-export function renderDone(mount, { onAgain, onHome }) {
+export function renderDone(mount, { onAgain, onHome, onRewards }) {
   mount.innerHTML = '';
   const wrap = el('div', { class: 'screen done' });
-  wrap.append(el('div', { class: 'mascot', 'aria-hidden': 'true' }, '🌟'), el('h1', { class: 'title' }, 'All done!'), el('p', { class: 'subtitle' }, 'Great job!'));
+  wrap.append(el('div', { class: 'mascot bob', 'aria-hidden': 'true' }, '🌟'), el('h1', { class: 'title' }, 'All done!'), el('p', { class: 'subtitle' }, 'Great job!'));
   const again = el('button', { class: 'btn btn-big' }, '↻  Play again');
   again.addEventListener('click', onAgain);
+  const row = el('div', { class: 'home-row' });
+  const stars = el('button', { class: 'btn btn-ghost' }, '🏆  My Stars');
+  stars.addEventListener('click', onRewards);
   const home = el('button', { class: 'btn btn-ghost' }, '⌂  Home');
   home.addEventListener('click', onHome);
-  wrap.append(again, home); mount.append(wrap);
+  row.append(stars, home);
+  wrap.append(again, row); mount.append(wrap);
+  celebrate(wrap, true);
+}
+
+/** Rewards shelf (on-device profile): stars, sticker collection, badges, progress map. */
+export function renderRewards(mount, r, { onBack }) {
+  mount.innerHTML = '';
+  const wrap = el('div', { class: 'screen rewards' });
+  wrap.append(el('div', { class: 'mascot', 'aria-hidden': 'true' }, '🦊'));
+  wrap.append(el('h2', { class: 'title sm' }, 'My Stars'));
+  wrap.append(el('div', { class: 'star-count' }, `⭐ ${r.mastered} learned`));
+
+  // progress map (worlds) — lit when the badge milestone is reached
+  const map = el('div', { class: 'progress-map' });
+  r.badges.forEach((b, i) => {
+    if (i) map.append(el('div', { class: 'map-link' + (b.got ? ' on' : '') }));
+    const node = el('div', { class: 'map-node' + (b.got ? ' on' : ''), title: `${b.name} (${b.need})` }, b.got ? b.icon : '🔒');
+    map.append(node);
+  });
+  wrap.append(map);
+
+  wrap.append(el('div', { class: 'sc-title' }, 'Sticker collection'));
+  const grid = el('div', { class: 'sticker-grid' });
+  for (const s of r.stickers) grid.append(el('div', { class: 'sticker' + (s.got ? ' got' : '') }, s.got ? s.icon : '❔'));
+  wrap.append(grid);
+  if (r.nextStickerAt != null) wrap.append(el('div', { class: 'hint' }, `Learn ${r.nextStickerAt - r.mastered} more to earn the next sticker!`));
+
+  const back = el('button', { class: 'btn' }, '⌂  Back');
+  back.addEventListener('click', onBack);
+  wrap.append(back); mount.append(wrap);
 }
 
 /** Parent area (behind the gate): scorecard + settings. On-device only. */

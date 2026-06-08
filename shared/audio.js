@@ -57,3 +57,29 @@ export function encourage(rng = Math.random) {
   if (!enabled) return;
   speak(CHEERS[Math.floor(rng() * CHEERS.length)]);
 }
+
+/** A short, synthesized noise "pop" (a firework burst). No audio files. */
+function pop(a, t) {
+  const dur = 0.18;
+  const buf = a.createBuffer(1, Math.max(1, Math.floor(a.sampleRate * dur)), a.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / d.length, 2); // decaying noise
+  const src = a.createBufferSource(); src.buffer = buf;
+  const g = a.createGain();
+  g.gain.setValueAtTime(0.16, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  src.connect(g); g.connect(a.destination); src.start(t); src.stop(t + dur);
+}
+
+/** Bigger celebratory firework: a rising whistle, a few pops, then a sparkle. All synthesized. */
+export function fireworks() {
+  if (!enabled) return;
+  const a = ctx(); if (!a) return;
+  const now = a.currentTime;
+  const o = a.createOscillator(), g = a.createGain();
+  o.type = 'sine'; o.connect(g); g.connect(a.destination);
+  o.frequency.setValueAtTime(420, now); o.frequency.exponentialRampToValueAtTime(1180, now + 0.26);
+  g.gain.setValueAtTime(0.0001, now); g.gain.exponentialRampToValueAtTime(0.12, now + 0.06); g.gain.exponentialRampToValueAtTime(0.0001, now + 0.3);
+  o.start(now); o.stop(now + 0.32);
+  for (let i = 0; i < 3; i++) pop(a, now + 0.28 + i * 0.13);
+  [880, 1174.7, 1568].forEach((f, i) => note(a, f, now + 0.42 + i * 0.07, 0.12, 0.1));
+}

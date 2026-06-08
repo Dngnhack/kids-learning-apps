@@ -2,8 +2,8 @@
 
 Two small, free, offline-first learning apps for young children, by **Digital Legends LLC**.
 
-- **DL Numbers — Count & Learn** (`/kids-numbers/`): count objects, hear numbers, match, and trace digits 0–20.
-- **DL Math — Add & Subtract** (`/kids-math/`): addition and subtraction facts, with listen and count modes.
+- **DL Numbers — Count & Learn** (`/kids-numbers/`): count objects, hear numbers, match, and trace digits — ranges from 5 up to 1000.
+- **DL Math — Add & Subtract** (`/kids-math/`): addition and subtraction with single-, double-, and triple-digit levels, plus listen and count modes.
 
 ## Built for trust
 - **No ads. No tracking. No data collection.** Nothing is sent anywhere.
@@ -11,6 +11,8 @@ Two small, free, offline-first learning apps for young children, by **Digital Le
 - **No microphone, camera, location, or accounts.**
 - **Progress is stored on your device only** and can be erased anytime (Grown-ups → Reset progress).
 - **Parent-gated** settings and scorecard.
+- **Learning-tied rewards** (stars, stickers, badges) that celebrate progress — no timers, no pressure, no chance-based loot.
+- Respects your device's **reduced-motion** and **sound** preferences.
 
 See each app's `PRIVACY_POLICY.md` for details.
 

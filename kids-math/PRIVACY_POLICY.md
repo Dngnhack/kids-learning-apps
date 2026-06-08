@@ -9,7 +9,7 @@
 **None.** DL Math does not collect, store off-device, or transmit any personal information. No analytics, advertising, tracking, accounts, microphone, or third-party SDKs.
 
 ## On-device data
-The app saves your child's **learning progress** (which math facts they've practiced) **only on this device** (local storage). It never leaves the device and is not personal information. Erase anytime: **Grown-ups → Reset progress**, or by uninstalling.
+The app saves your child's **learning progress** (which math facts they've practiced) and **rewards** (stars, stickers, badges) **only on this device** (local storage). It never leaves the device and is not personal information. Erase anytime: **Grown-ups → Reset progress**, or by uninstalling.
 
 ## Children's privacy (COPPA)
 Designed for young children and **COPPA-compliant by design**: because we collect no personal information and transmit nothing, there is nothing to consent to share.
