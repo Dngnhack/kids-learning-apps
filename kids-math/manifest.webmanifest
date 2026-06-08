@@ -1,0 +1,16 @@
+{
+  "name": "DL Math — Add & Subtract",
+  "short_name": "DL Math",
+  "description": "A simple, ad-free, offline early-math game for young learners. No data collected.",
+  "lang": "en-US",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#eef4ff",
+  "theme_color": "#1d4ed8",
+  "categories": ["education", "kids"],
+  "icons": [
+    { "src": "./assets/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

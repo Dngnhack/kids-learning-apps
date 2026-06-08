@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#1d4ed8" />
+  <title>Digital Legends — Kids' Learning Apps</title>
+  <meta name="description" content="Free, ad-free, offline learning apps for young children. No data collected." />
+  <style>
+    :root { --blue:#1d4ed8; --blue-dark:#1e3a8a; --green:#16a34a; --sun:#f59e0b; --bg:#eef4ff; }
+    * { box-sizing:border-box; }
+    body { margin:0; min-height:100vh; font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+      background:var(--bg); color:#0f172a; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:2rem 1.2rem; text-align:center; }
+    h1 { color:var(--blue-dark); font-size:clamp(1.8rem,7vw,2.8rem); margin:.2rem 0; }
+    .tag { color:#475569; font-size:1.05rem; margin:0 0 1.6rem; max-width:34ch; }
+    .cards { display:flex; flex-wrap:wrap; gap:1rem; justify-content:center; }
+    .card { display:flex; flex-direction:column; align-items:center; gap:.4rem; width:180px; padding:1.4rem 1rem;
+      background:#fff; border:4px solid #bfdbfe; border-radius:22px; box-shadow:0 6px 0 #cbd5e1; text-decoration:none; color:var(--blue-dark); }
+    .card:active { transform:translateY(4px); box-shadow:0 2px 0 #cbd5e1; }
+    .ic { font-size:3rem; line-height:1; }
+    .name { font-weight:800; font-size:1.2rem; }
+    .sub { font-weight:600; font-size:.85rem; color:#64748b; }
+    .promise { margin-top:1.8rem; color:#475569; font-size:.85rem; max-width:42ch; }
+    footer { margin-top:1.6rem; color:#94a3b8; font-size:.8rem; }
+  </style>
+</head>
+<body>
+  <h1>Kids' Learning Apps</h1>
+  <p class="tag">Simple, friendly practice for young learners. No ads. No data collected. Works offline.</p>
+  <div class="cards">
+    <a class="card" href="./kids-numbers/"><span class="ic" aria-hidden="true">🔢</span><span class="name">Numbers</span><span class="sub">Count &amp; learn 0–20</span></a>
+    <a class="card" href="./kids-math/"><span class="ic" aria-hidden="true">➕</span><span class="name">Math</span><span class="sub">Add &amp; subtract</span></a>
+  </div>
+  <p class="promise">Built for grown-ups to trust: no ads, no tracking, no microphone, no data collected — everything stays on the device.</p>
+  <footer>© Digital Legends LLC · digital-legends-llc.com</footer>
+</body>
+</html>
