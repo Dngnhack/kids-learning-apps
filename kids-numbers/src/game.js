@@ -58,4 +58,5 @@ export const MODES = [
   { id: 'hear', label: 'Listen', emoji: '🔊', desc: 'Hear a number, tap it' },
   { id: 'matchAudio', label: 'Match', emoji: '🎧', desc: 'See a number, tap to hear, pick the match' },
   { id: 'trace', label: 'Trace', emoji: '✏️', desc: 'Trace the number shape' },
+  { id: 'mixed', label: 'Mixed', emoji: '🎲', desc: 'A surprise mix of games' },
 ];

@@ -34,4 +34,5 @@ export const MODES = [
   { id: 'equation', label: 'Solve', emoji: '🟰', desc: 'See the problem, tap the answer' },
   { id: 'hear', label: 'Listen', emoji: '🔊', desc: 'Hear the problem, tap the answer' },
   { id: 'objects', label: 'Count', emoji: '🍎', desc: 'Count the groups, tap the answer' },
+  { id: 'mixed', label: 'Mixed', emoji: '🎲', desc: 'A surprise mix of games' },
 ];

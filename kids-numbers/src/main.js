@@ -28,16 +28,21 @@ let stats = { total: 0, correct: 0 };
 const now = () => (typeof performance !== 'undefined' ? performance.now() : 0);
 const rangeMax = () => Number(settings.rangeKey) || 10;
 
-/** Effective max for the CURRENT mode (count caps objects; trace is single-digit). */
-function effMax() {
-  if (settings.mode === 'trace') return Math.min(rangeMax(), 9);
-  if (settings.mode === 'count') return Math.min(rangeMax(), COUNT_CAP);
-  return rangeMax();
+/** Resolve the concrete mode for a question — 'mixed' picks a random AVAILABLE mode for this value
+ * (auto-excludes count-objects above the cap, and keeps trace to sensible low numbers). */
+function concreteMode(value) {
+  if (settings.mode !== 'mixed') return settings.mode;
+  const opts = ['hear', 'matchAudio'];
+  if (value <= COUNT_CAP) opts.push('count');
+  if (value <= 20) opts.push('trace');
+  return opts[Math.floor(Math.random() * opts.length)];
 }
 
 function activeIds() {
-  const max = effMax();
-  if (settings.mode === 'count' || settings.mode === 'trace') return idsForRange(max);
+  const max = rangeMax();
+  if (settings.mode === 'trace') return idsForRange(Math.min(max, 9));
+  if (settings.mode === 'count') return idsForRange(Math.min(max, COUNT_CAP));
+  // recognition OR mixed: span the full range (sampled if big); per-question mode excludes count/trace by value
   if (max <= ENUM_CAP) return idsForRange(max);
   return sampleIds(max, BIG_SAMPLE);
 }
@@ -64,14 +69,16 @@ function nextQuestion() {
   if (pos >= session.length) return finishSession();
   missed = false; stats.total += 1; startTime = now();
   const id = session[pos];
+  const value = getCard(id).value;
+  const mode = concreteMode(value);
 
-  if (settings.mode === 'trace') {
-    const value = getCard(id).value;
+  if (mode === 'trace') {
     ui.renderTrace(mount, value, traceDigit(value), `${pos + 1} / ${session.length}`, { onComplete: () => onTraceDone(id) });
     audio.speak('Trace the ' + value);
     return;
   }
-  const q = buildQuestion(id, { mode: settings.mode, max: effMax() });
+  const qMax = mode === 'count' ? Math.min(rangeMax(), COUNT_CAP) : rangeMax();
+  const q = buildQuestion(id, { mode, max: qMax });
   const ctrl = ui.renderQuestion(mount, q, `${pos + 1} / ${session.length}`, {
     onSubmit: (picked) => handleAnswer(q, picked, ctrl),
     onHear: (n) => audio.speak(String(n)),

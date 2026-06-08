@@ -14,13 +14,39 @@ function ctx() {
   return ac;
 }
 
-/** Speak a short word/number/equation, e.g. "five" or "two plus three". No-op if unsupported/muted. */
-export function speak(text) {
+// Warm-voice selection (Path A): pick the warmest available BUILT-IN OS voice for a gentle
+// preschool-teacher STYLE. We emulate the style only — NEVER a real person's voice/likeness or a
+// clone (generic OS voices only). The voice list loads async, so we (re)pick on voiceschanged.
+let preferredVoice = null;
+const VOICE_PREFS = [/Samantha/i, /Aria/i, /Jenny/i, /\bAva\b/i, /Allison/i, /\bNatural\b/i, /Google US English/i, /Microsoft (Zira|Aria|Jenny)/i, /female/i];
+function pickVoice() {
+  try {
+    if (!('speechSynthesis' in window)) return;
+    const voices = window.speechSynthesis.getVoices() || [];
+    const en = voices.filter((v) => /^en/i.test(v.lang));
+    for (const re of VOICE_PREFS) { const m = en.find((v) => re.test(v.name)); if (m) { preferredVoice = m; return; } }
+    preferredVoice = en[0] || voices[0] || null;
+  } catch (_e) { /* ignore */ }
+}
+if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+  pickVoice();
+  try { window.speechSynthesis.addEventListener('voiceschanged', pickVoice); } catch (_e) { /* ignore */ }
+}
+
+/**
+ * Speak a short word/number/equation in a warm, slow, child-friendly voice (preschool-teacher
+ * cadence). No-op if unsupported/muted. opts.rate / opts.pitch override the gentle defaults.
+ */
+export function speak(text, opts = {}) {
   if (!enabled) return;
   try {
     if (!('speechSynthesis' in window)) return;
+    if (!preferredVoice) pickVoice();
     const u = new SpeechSynthesisUtterance(String(text));
-    u.rate = 0.9; u.pitch = 1.15; u.lang = 'en-US';
+    u.rate = typeof opts.rate === 'number' ? opts.rate : 0.78;   // slower = clearer, gentler
+    u.pitch = typeof opts.pitch === 'number' ? opts.pitch : 1.15; // warm, child-friendly
+    u.volume = 1; u.lang = 'en-US';
+    if (preferredVoice) u.voice = preferredVoice;
     window.speechSynthesis.cancel();
     window.speechSynthesis.speak(u);
   } catch (_e) { /* ignore */ }
@@ -52,10 +78,12 @@ export function cheer() {
   [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => note(a, f, now + i * 0.1, 0.16, 0.16));
 }
 
-const CHEERS = ['Great job!', 'You did it!', 'Awesome!', 'Nice work!', 'Yay!'];
+// Warm, encouraging praise (generic preschool-teacher style — not modeled on any real person).
+const CHEERS = ['Great job!', 'You did it!', 'Wonderful!', 'Yay, well done!', 'Nice work, friend!', 'Hooray, you got it!', "I'm so proud of you!"];
 export function encourage(rng = Math.random) {
   if (!enabled) return;
-  speak(CHEERS[Math.floor(rng() * CHEERS.length)]);
+  // a touch slower + higher = gentle, sing-song, enthusiastic delivery
+  speak(CHEERS[Math.floor(rng() * CHEERS.length)], { rate: 0.72, pitch: 1.25 });
 }
 
 /** A short, synthesized noise "pop" (a firework burst). No audio files. */

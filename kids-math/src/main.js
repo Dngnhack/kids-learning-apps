@@ -23,10 +23,20 @@ let pos = 0, missed = false, startTime = 0;
 let stats = { total: 0, correct: 0 };
 const now = () => (typeof performance !== 'undefined' ? performance.now() : 0);
 
-/** Facts for the session. Count/objects mode clamps to 1-digit (so objects are renderable). */
+/** Facts for the session. Count/objects mode clamps to 1-digit (so objects are renderable);
+ * other modes (incl. mixed) sample the selected tier. */
 function sessionIds() {
   if (settings.mode === 'objects') { const L = getLevel(settings.rangeKey); return sampleIds(L.op === '-' ? 's1' : 'a1', POOL); }
   return sampleIds(settings.rangeKey, POOL);
+}
+
+/** Resolve the concrete mode for a question — 'mixed' picks a random AVAILABLE mode for this fact
+ * (objects only when both operands are countable, ≤9). */
+function concreteMode(q) {
+  if (settings.mode !== 'mixed') return settings.mode;
+  const opts = ['equation', 'hear'];
+  if (q.a <= 9 && q.b <= 9) opts.push('objects');
+  return opts[Math.floor(Math.random() * opts.length)];
 }
 
 function home() {
@@ -51,6 +61,7 @@ function nextQuestion() {
   if (pos >= session.length) return finishSession();
   missed = false; stats.total += 1; startTime = now();
   const q = buildQuestion(session[pos], { mode: settings.mode });
+  q.mode = concreteMode(q); // resolve 'mixed' per question
   const ctrl = ui.renderQuestion(mount, q, `${pos + 1} / ${session.length}`, {
     onSubmit: (picked) => handleAnswer(q, picked, ctrl),
     onHear: () => audio.speak(spoken(q)),

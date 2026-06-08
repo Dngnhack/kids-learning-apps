@@ -42,3 +42,27 @@ export function advance(points, idx, x, y, threshold = 24) {
 }
 
 export function isComplete(points, idx) { return idx >= points.length; }
+
+/**
+ * Snap-to-path: project (x,y) onto the nearest point of the digit's stroke segments.
+ * Returns { x, y, dist } (the snapped point + how far the finger was). Used to constrain the trail
+ * so it only draws ON/near the numeral path (no scribbling) — and stays clean by drawing the
+ * snapped point, not the raw finger position.
+ */
+export function nearestOnPath(digit, x, y) {
+  const strokes = DIGIT_STROKES[digit] || DIGIT_STROKES[1];
+  let best = { x, y, dist: Infinity };
+  for (const s of strokes) {
+    for (let i = 0; i < s.length - 1; i++) {
+      const [ax, ay] = s[i], [bx, by] = s[i + 1];
+      const dx = bx - ax, dy = by - ay;
+      const len2 = dx * dx + dy * dy || 1;
+      let t = ((x - ax) * dx + (y - ay) * dy) / len2;
+      t = Math.max(0, Math.min(1, t));
+      const px = ax + t * dx, py = ay + t * dy;
+      const d = Math.hypot(x - px, y - py);
+      if (d < best.dist) best = { x: px, y: py, dist: d };
+    }
+  }
+  return best;
+}

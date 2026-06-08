@@ -4,7 +4,7 @@
 
 import { RANGES } from './decks/numbers.js';
 import { MODES } from './game.js';
-import { DIGIT_STROKES, TRACE_BOX, checkpoints, advance, isComplete } from './trace.js';
+import { DIGIT_STROKES, TRACE_BOX, checkpoints, advance, isComplete, nearestOnPath } from './trace.js';
 import * as core from '../../shared/ui-core.js';
 
 export const renderDone = core.renderDone;
@@ -60,11 +60,17 @@ export function renderTrace(mount, value, digit, progressText, { onComplete }) {
   const svg = document.createElementNS(SVGNS, 'svg');
   svg.setAttribute('viewBox', `0 0 ${TRACE_BOX.w} ${TRACE_BOX.h}`); svg.setAttribute('class', 'trace-svg');
 
-  // guide stroke(s) — the ghost the dots sit on
+  // hollow-outline TRACK (the template channel the trail fills in) — built from our own stroke
+  // polyline so it always aligns with the dots (no system-font glyph drift).
   for (const s of strokes) {
-    const pl = document.createElementNS(SVGNS, 'polyline');
-    pl.setAttribute('points', s.map((p) => p.join(',')).join(' '));
-    pl.setAttribute('class', 'trace-guide'); svg.append(pl);
+    const track = document.createElementNS(SVGNS, 'polyline');
+    track.setAttribute('points', s.map((p) => p.join(',')).join(' '));
+    track.setAttribute('class', 'trace-track'); svg.append(track);
+  }
+  for (const s of strokes) {
+    const edge = document.createElementNS(SVGNS, 'polyline');
+    edge.setAttribute('points', s.map((p) => p.join(',')).join(' '));
+    edge.setAttribute('class', 'trace-outline'); svg.append(edge);
   }
   // colored trail (built from finger positions)
   const trail = document.createElementNS(SVGNS, 'polyline');
@@ -84,9 +90,14 @@ export function renderTrace(mount, value, digit, progressText, { onComplete }) {
     const cy = e.touches ? e.touches[0].clientY : e.clientY;
     return [((cx - r.left) / r.width) * TRACE_BOX.w, ((cy - r.top) / r.height) * TRACE_BOX.h];
   };
+  const TOL = 16; // how close to the path counts as "on the line" (0..100 / 0..140 space)
   const move = (e) => {
     const [x, y] = norm(e);
-    trailPts.push(`${x.toFixed(1)},${y.toFixed(1)}`); trail.setAttribute('points', trailPts.join(' '));
+    const snap = nearestOnPath(digit, x, y);
+    if (snap.dist <= TOL) {               // draw ONLY on/near the numeral path — no scribbling
+      trailPts.push(`${snap.x.toFixed(1)},${snap.y.toFixed(1)}`); // snapped point = clean trail on the shape
+      trail.setAttribute('points', trailPts.join(' '));
+    }
     const ni = advance(points, idx, x, y);
     if (ni !== idx) { idx = ni; if (dots[idx - 1]) dots[idx - 1].classList.add('hit'); }
     if (isComplete(points, idx)) { svg.removeEventListener('pointermove', move); svg.removeEventListener('pointerdown', move); core.celebrate(wrap); onComplete(); }

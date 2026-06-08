@@ -82,8 +82,9 @@ body {
 /* trace */
 .trace-stage { position: relative; width: min(70vw, 260px); aspect-ratio: 100 / 140; }
 .trace-svg { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; }
-.trace-guide { fill: none; stroke: #dbeafe; stroke-width: 13; stroke-linecap: round; stroke-linejoin: round; }
-.trace-trail { fill: none; stroke: var(--pink); stroke-width: 8; stroke-linecap: round; stroke-linejoin: round; opacity: .9; }
+.trace-track { fill: none; stroke: #dbeafe; stroke-width: 26; stroke-linecap: round; stroke-linejoin: round; } /* hollow template channel */
+.trace-outline { fill: none; stroke: #93c5fd; stroke-width: 2; stroke-dasharray: 4 5; stroke-linecap: round; stroke-linejoin: round; opacity: .75; } /* dashed centerline guide */
+.trace-trail { fill: none; stroke: var(--pink); stroke-width: 16; stroke-linecap: round; stroke-linejoin: round; opacity: .95; } /* fills the channel as the child traces */
 .cp { fill: #bfdbfe; } .cp.start { fill: var(--green); } .cp.hit { fill: var(--blue); }
 
 /* rewards shelf */
