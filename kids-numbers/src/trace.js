@@ -1,8 +1,9 @@
-// trace.js — "trace the number" pre-writing mode. Lightweight + on-device.
-// Each digit 0–9 is defined as one or more STROKE polylines (x:0–100, y:0–140). The ghost guide
-// is drawn FROM these same polylines and the checkpoint dots sit ON their vertices — so the dots
-// always match the visible numeral shape (this is the fix for the misaligned-dots bug). A guided
-// stroke, not handwriting recognition. Pure data + tiny helpers (no DOM) so it stays testable.
+// trace.js — "trace the number" connect-the-dots pre-writing mode. On-device, pure + testable.
+// Each digit 0–9 = one or more STROKE polylines (x:0–100, y:0–140). We DENSIFY each stroke into
+// evenly-spaced ORDERED checkpoints the child connects in order; the trace completes ONLY when the
+// FINAL checkpoint of the LAST stroke is reached (no early finish) — the final checkpoint uses a
+// tighter tolerance so the child must arrive at the true end. Multi-stroke digits (4) are traced
+// stroke-by-stroke in sequence (checkpoints are flattened in stroke order).
 
 /** Stroke polylines per digit. Each digit = array of strokes; each stroke = ordered [x,y] points. */
 export const DIGIT_STROKES = {
@@ -19,35 +20,51 @@ export const DIGIT_STROKES = {
 };
 
 export const TRACE_BOX = { w: 100, h: 140 };
+const STEP = 20; // checkpoint spacing in box units (connect-the-dots density)
 
-/** Ordered checkpoints across all strokes of a digit (flattened). */
-export function checkpoints(digit) {
-  const strokes = DIGIT_STROKES[digit] || DIGIT_STROKES[1];
-  return strokes.flat();
+function densifyStroke(s) {
+  const out = [s[0].slice()];
+  for (let i = 1; i < s.length; i++) {
+    const [ax, ay] = s[i - 1], [bx, by] = s[i];
+    const segs = Math.max(1, Math.round(Math.hypot(bx - ax, by - ay) / STEP));
+    for (let k = 1; k <= segs; k++) out.push([ax + (bx - ax) * (k / segs), ay + (by - ay) * (k / segs)]);
+  }
+  return out;
+}
+
+/** Densified per-stroke point arrays (evenly spaced). */
+export function denseStrokes(digit) { return (DIGIT_STROKES[digit] || DIGIT_STROKES[1]).map(densifyStroke); }
+
+/** All ordered checkpoints (flattened across strokes, in stroke order). */
+export function checkpoints(digit) { return denseStrokes(digit).flat(); }
+
+/** Flat index where each stroke begins — for numbered start markers + stroke order. */
+export function strokeStarts(digit) {
+  const ds = denseStrokes(digit); const starts = []; let i = 0;
+  for (const s of ds) { starts.push(i); i += s.length; }
+  return starts;
 }
 
 /** Which digit to trace for a value (single-digit pre-writing). */
-export function traceDigit(value) {
-  return value <= 9 ? value : value % 10;
-}
+export function traceDigit(value) { return value <= 9 ? value : value % 10; }
 
 /**
- * Advance through checkpoints: if the pointer (normalized x,y) is within `threshold` of the NEXT
- * checkpoint, return the new index; else the same. Complete when idx >= points.length.
+ * Advance ONE checkpoint if the pointer is within tolerance of the NEXT checkpoint. The FINAL
+ * checkpoint uses a TIGHTER tolerance so the trace must reach the true end (no early finish).
+ * Returns the new index (or the same). Complete only when idx >= points.length.
  */
-export function advance(points, idx, x, y, threshold = 24) {
+export function advance(points, idx, x, y) {
   if (idx >= points.length) return idx;
+  const tol = idx === points.length - 1 ? 13 : 19; // tight on the final point
   const [px, py] = points[idx];
-  return Math.hypot(x - px, y - py) <= threshold ? idx + 1 : idx;
+  return Math.hypot(x - px, y - py) <= tol ? idx + 1 : idx;
 }
 
 export function isComplete(points, idx) { return idx >= points.length; }
 
 /**
  * Snap-to-path: project (x,y) onto the nearest point of the digit's stroke segments.
- * Returns { x, y, dist } (the snapped point + how far the finger was). Used to constrain the trail
- * so it only draws ON/near the numeral path (no scribbling) — and stays clean by drawing the
- * snapped point, not the raw finger position.
+ * Returns { x, y, dist }. Used to constrain the trail to the numeral path (no scribbling).
  */
 export function nearestOnPath(digit, x, y) {
   const strokes = DIGIT_STROKES[digit] || DIGIT_STROKES[1];

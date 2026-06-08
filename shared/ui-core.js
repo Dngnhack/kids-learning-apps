@@ -131,10 +131,18 @@ export function renderHome(mount, { title, mascot, state, ranges, modes, pickLab
   mount.append(wrap);
 }
 
-export function renderDone(mount, { onAgain, onHome, onRewards }) {
+export function renderDone(mount, { onAgain, onHome, onRewards, lesson }) {
   mount.innerHTML = '';
   const wrap = el('div', { class: 'screen done' });
-  wrap.append(el('div', { class: 'mascot bob', 'aria-hidden': 'true' }, '🌟'), el('h1', { class: 'title' }, 'All done!'), el('p', { class: 'subtitle' }, 'Great job!'));
+  wrap.append(el('div', { class: 'mascot bob', 'aria-hidden': 'true' }, '🌟'), el('h1', { class: 'title' }, 'Lesson complete!'), el('p', { class: 'subtitle' }, 'Great job!'));
+  if (lesson && lesson.sticker) {
+    const s = el('div', { class: 'lesson-sticker' });
+    s.append(el('div', { class: 'big-sticker', 'aria-hidden': 'true' }, lesson.sticker), el('div', { class: 'hint' }, lesson.newSticker ? 'New sticker earned!' : 'Sticker earned!'));
+    wrap.append(s);
+  }
+  // POSITIVE-ONLY streak: celebrate returning; never guilt a miss.
+  if (lesson && lesson.streak >= 2) wrap.append(el('div', { class: 'streak-line' }, `🔆 ${lesson.streak}-day streak — yay, you came back!`));
+  if (lesson && lesson.streakBadge) wrap.append(el('div', { class: 'streak-line' }, `${lesson.streakBadge.icon} New badge: ${lesson.streakBadge.name}!`));
   const again = el('button', { class: 'btn btn-big' }, '↻  Play again');
   again.addEventListener('click', onAgain);
   const row = el('div', { class: 'home-row' });
@@ -153,7 +161,15 @@ export function renderRewards(mount, r, { onBack }) {
   const wrap = el('div', { class: 'screen rewards' });
   wrap.append(el('div', { class: 'mascot', 'aria-hidden': 'true' }, '🦊'));
   wrap.append(el('h2', { class: 'title sm' }, 'My Stars'));
-  wrap.append(el('div', { class: 'star-count' }, `⭐ ${r.mastered} learned`));
+  wrap.append(el('div', { class: 'star-count' }, `📚 ${r.lessons} lessons · ⭐ ${r.mastered} learned`));
+  if (r.streakBest >= 2 || r.streakCur >= 2) wrap.append(el('div', { class: 'streak-line' }, `🔆 Best streak: ${r.streakBest} days${r.streakCur >= 2 ? ` · now ${r.streakCur} in a row!` : ''}`));
+  // day-streak badges (positive-only)
+  if (r.streakBadges && r.streakBadges.some((b) => b.got)) {
+    wrap.append(el('div', { class: 'sc-sub' }, 'Day-streak badges'));
+    const sb = el('div', { class: 'streak-badges' });
+    for (const b of r.streakBadges) { const n = el('div', { class: 'sbadge' + (b.got ? ' got' : ''), title: b.name }, b.got ? b.icon : '🔒'); sb.append(n); }
+    wrap.append(sb);
+  }
 
   // progress map (worlds) — lit when the badge milestone is reached
   const map = el('div', { class: 'progress-map' });
@@ -168,7 +184,7 @@ export function renderRewards(mount, r, { onBack }) {
   const grid = el('div', { class: 'sticker-grid' });
   for (const s of r.stickers) grid.append(el('div', { class: 'sticker' + (s.got ? ' got' : '') }, s.got ? s.icon : '❔'));
   wrap.append(grid);
-  if (r.nextStickerAt != null) wrap.append(el('div', { class: 'hint' }, `Learn ${r.nextStickerAt - r.mastered} more to earn the next sticker!`));
+  if (r.nextStickerAt != null) wrap.append(el('div', { class: 'hint' }, 'Finish a lesson to earn the next sticker!'));
 
   const back = el('button', { class: 'btn' }, '⌂  Back');
   back.addEventListener('click', onBack);

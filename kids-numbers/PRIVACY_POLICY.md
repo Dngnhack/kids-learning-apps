@@ -9,7 +9,7 @@
 **None.** DL Numbers does **not** collect, store off-device, or transmit any personal information. It does **not** use analytics, advertising, tracking, accounts, or third-party SDKs.
 
 ## On-device data
-The app saves your child's **learning progress** (which numbers they've practiced) and **rewards** (stars, stickers, badges) **only on this device**, using local storage. This never leaves the device and is not personal information. You can erase it anytime: **Grown-ups → Reset progress**, or by uninstalling the app.
+The app saves your child's **learning progress** (which numbers they've practiced) and **rewards** (stickers, badges, day-streak count) **only on this device**, using local storage. This never leaves the device and is not personal information. You can erase it anytime: **Grown-ups → Reset progress**, or by uninstalling the app.
 
 ## Children's privacy (COPPA)
 DL Numbers is designed for young children and is built to be **COPPA-compliant by design**: because we collect no personal information and transmit nothing, there is nothing to consent to share. We do not knowingly collect personal information from anyone, including children under 13.

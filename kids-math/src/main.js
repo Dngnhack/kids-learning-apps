@@ -9,7 +9,7 @@ import { buildQuestion, isCorrect, spoken } from './game.js';
 import { DECK_META, sampleIds, getLevel } from './decks/math.js';
 import * as ui from './ui.js';
 
-const SESSION_SIZE = 8;
+const SESSION_SIZE = 10; // a "lesson" = 10 problems
 const POOL = 28;
 const mount = /** @type {HTMLElement} */ (document.getElementById('app'));
 const store = makeStorage('dl-kids-math');
@@ -87,22 +87,21 @@ function handleAnswer(q, picked, ctrl) {
 function rewardCorrect() {
   const prevPeak = store.loadRewards().peak || 0;
   const r = rewards.update(store, progress);
-  const earned = rewards.newlyEarned(prevPeak, r.peak);
+  const badge = rewards.newBadge(prevPeak, r.peak);
   audio.tone('good'); audio.cheer(); audio.encourage();
   const screen = mount.querySelector('.screen') || mount;
-  if (earned.sticker || earned.badge) {
-    ui.celebrate(screen, true); audio.fireworks();
-    audio.speak(earned.badge ? `New badge! ${earned.badge.name}` : 'You earned a sticker!');
-  } else {
-    ui.celebrate(screen, false);
-  }
+  if (badge) { ui.celebrate(screen, true); audio.fireworks(); audio.speak(`New badge! ${badge.name}`); }
+  else { ui.celebrate(screen, false); }
 }
 
 function finishSession() {
   const accuracy = stats.total ? stats.correct / stats.total : 0;
   store.appendSession({ t: new Date().toISOString(), mode: settings.mode, level: settings.rangeKey, total: stats.total, correct: stats.correct, accuracy });
-  audio.fireworks(); audio.speak('All done! Great job!');
-  ui.renderDone(mount, { onAgain: startSession, onHome: home, onRewards: openRewards });
+  const lesson = rewards.completeLesson(store);          // end-of-lesson sticker
+  const day = rewards.recordDay(store);                  // positive-only day streak
+  audio.fireworks(); audio.speak('Lesson complete! Great job!');
+  ui.renderDone(mount, { onAgain: startSession, onHome: home, onRewards: openRewards,
+    lesson: { sticker: lesson.sticker, newSticker: lesson.newSticker, streak: day.streak, streakBadge: day.newStreakBadge } });
 }
 
 function openRewards() { ui.renderRewards(mount, rewards.model(store), { onBack: home }); }

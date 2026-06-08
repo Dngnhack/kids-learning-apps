@@ -85,7 +85,13 @@ body {
 .trace-track { fill: none; stroke: #dbeafe; stroke-width: 26; stroke-linecap: round; stroke-linejoin: round; } /* hollow template channel */
 .trace-outline { fill: none; stroke: #93c5fd; stroke-width: 2; stroke-dasharray: 4 5; stroke-linecap: round; stroke-linejoin: round; opacity: .75; } /* dashed centerline guide */
 .trace-trail { fill: none; stroke: var(--pink); stroke-width: 16; stroke-linecap: round; stroke-linejoin: round; opacity: .95; } /* fills the channel as the child traces */
-.cp { fill: #bfdbfe; } .cp.start { fill: var(--green); } .cp.hit { fill: var(--blue); }
+.trace-arrow { fill: #60a5fa; opacity: .85; } /* directional "this way" arrows along the path */
+.cp { fill: #bfdbfe; } .cp.hit { fill: var(--blue); }
+.cp.next { fill: var(--sun); animation: cppulse 1s ease-in-out infinite; } /* the dot to head for */
+.cp-start { fill: var(--green); stroke: #fff; stroke-width: 2; } /* numbered start point */
+.cp-start-num { fill: #fff; font-size: 11px; font-weight: 900; }
+.trace-hint { margin-top: .3rem; font-size: 1.05rem; font-weight: 800; color: var(--blue-dark); background: #fef9c3; border-radius: 999px; padding: .35rem 1rem; }
+@keyframes cppulse { 0%,100% { r: 5; opacity: 1; } 50% { r: 8; opacity: .7; } }
 
 /* rewards shelf */
 .star-count { font-size: 1.5rem; font-weight: 900; color: var(--sun); }
@@ -96,6 +102,14 @@ body {
 .sticker-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: .5rem; max-width: 360px; }
 .sticker { width: 48px; height: 48px; border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 1.8rem; background: #f1f5f9; border: 3px dashed #cbd5e1; color: #94a3b8; }
 .sticker.got { background: #ecfdf5; border: 3px solid var(--green); animation: pop .3s ease both; }
+.streak-line { font-size: 1.1rem; font-weight: 800; color: var(--green); }
+.streak-badges { display: flex; gap: .5rem; flex-wrap: wrap; justify-content: center; }
+.sbadge { width: 52px; height: 52px; border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 1.4rem; background: #f1f5f9; border: 3px solid #cbd5e1; color: #94a3b8; }
+.sbadge.got { background: #eff6ff; border-color: var(--blue); }
+
+/* end-of-lesson reward moment */
+.lesson-sticker { display: flex; flex-direction: column; align-items: center; gap: .2rem; }
+.big-sticker { font-size: clamp(3.5rem, 18vw, 5.5rem); line-height: 1; animation: pop .35s ease both; }
 
 .parent, .gate, .rewards { gap: .85rem; max-width: 520px; }
 .parent-note { color: #475569; font-size: 1rem; line-height: 1.5; }

@@ -1,5 +1,5 @@
 // sw.js — offline cache of the LOCAL app shell + the shared engine. No remote fetches, no tracking.
-const CACHE = 'dl-kids-math-v3';
+const CACHE = 'dl-kids-math-v4';
 const ASSETS = [
   './', './index.html', './manifest.webmanifest', './assets/icon.svg',
   './src/main.js', './src/game.js', './src/ui.js', './src/decks/math.js',
