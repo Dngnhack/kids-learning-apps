@@ -30,9 +30,11 @@ export function isCorrect(question, picked) { return picked === question.value; 
 /** Spoken form, e.g. "two plus three". */
 export function spoken(q) { return `${q.a} ${q.op === '+' ? 'plus' : 'minus'} ${q.b}`; }
 
+// MODE ORDER = pedagogical progression: concrete first — Count the groups (objects),
+// then read + Solve the written problem, then Listen (hear it), then Mixed review. Concrete→abstract.
 export const MODES = [
+  { id: 'objects', label: 'Count', emoji: '🍎', desc: 'Count the groups, tap the answer' },
   { id: 'equation', label: 'Solve', emoji: '🟰', desc: 'See the problem, tap the answer' },
   { id: 'hear', label: 'Listen', emoji: '🔊', desc: 'Hear the problem, tap the answer' },
-  { id: 'objects', label: 'Count', emoji: '🍎', desc: 'Count the groups, tap the answer' },
   { id: 'mixed', label: 'Mixed', emoji: '🎲', desc: 'A surprise mix of games' },
 ];

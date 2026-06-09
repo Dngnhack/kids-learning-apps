@@ -11,12 +11,14 @@ import { DECK_META, idsForRange, sampleIds, getCard, COUNT_CAP, ENUM_CAP } from 
 import { traceDigit } from './trace.js';
 import * as ui from './ui.js';
 
-const SESSION_SIZE = 10; // a "lesson" = 10 problems
+const DEFAULT_LESSON = 10; // a "lesson" defaults to 10 problems (parent-settable)
+const LESSON_CHOICES = [5, 10, 15, 20];
+const sessionSize = () => LESSON_CHOICES.includes(settings.lessonLength) ? settings.lessonLength : DEFAULT_LESSON;
 const BIG_SAMPLE = 28;
 const mount = /** @type {HTMLElement} */ (document.getElementById('app'));
 const store = makeStorage('dl-kids-numbers');
 
-let settings = store.loadSettings({ rangeKey: '10', mode: 'count', audio: true });
+let settings = store.loadSettings({ rangeKey: '10', mode: 'trace', audio: true, lessonLength: DEFAULT_LESSON });
 if (!settings.rangeKey && settings.max) settings.rangeKey = String(settings.max); // migrate old saves
 audio.setEnabled(settings.audio !== false);
 let progress = srs.reconcile(store.load() || srs.createProgress(DECK_META.ids), DECK_META.ids);
@@ -60,7 +62,7 @@ function home() {
 function startSession() {
   const ids = activeIds();
   srs.reconcile(progress, ids);
-  session = srs.pickSession(progress, ids, SESSION_SIZE);
+  session = srs.pickSession(progress, ids, sessionSize());
   pos = 0; stats = { total: 0, correct: 0 };
   nextQuestion();
 }
@@ -139,9 +141,10 @@ function openParentGate() {
 
 function openParent() {
   const ids = DECK_META.ids; // stable base deck (0..100) for a meaningful progress denominator
-  ui.renderParent(mount, { summary: srs.summary(progress, ids), history: store.getHistory(), audioEnabled: audio.isEnabled() }, {
+  ui.renderParent(mount, { summary: srs.summary(progress, ids), history: store.getHistory(), audioEnabled: audio.isEnabled(), lessonLength: sessionSize(), lessonChoices: LESSON_CHOICES }, {
     onReset: () => { store.reset(); progress = srs.createProgress(DECK_META.ids); openParent(); },
     onToggleAudio: () => { const on = !audio.isEnabled(); audio.setEnabled(on); settings.audio = on; store.saveSettings(settings); openParent(); },
+    onSetLessonLength: (n) => { settings.lessonLength = n; store.saveSettings(settings); openParent(); },
     onBack: home,
   });
 }

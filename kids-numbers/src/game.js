@@ -53,10 +53,13 @@ export function isCorrect(question, picked) {
   return picked === question.value;
 }
 
+// MODE ORDER = pedagogical learning progression: form the numeral first (Trace), then
+// recognize it by sound (Listen → hear a number, tap it), then connect symbol↔sound (Match), then
+// apply meaning to quantity (Count), then Mixed review. Trace is first + the default.
 export const MODES = [
-  { id: 'count', label: 'Count', emoji: '🍎', desc: 'Count the things, tap the number' },
+  { id: 'trace', label: 'Trace', emoji: '✏️', desc: 'Trace the number shape' },
   { id: 'hear', label: 'Listen', emoji: '🔊', desc: 'Hear a number, tap it' },
   { id: 'matchAudio', label: 'Match', emoji: '🎧', desc: 'See a number, tap to hear, pick the match' },
-  { id: 'trace', label: 'Trace', emoji: '✏️', desc: 'Trace the number shape' },
+  { id: 'count', label: 'Count', emoji: '🍎', desc: 'Count the things, tap the number' },
   { id: 'mixed', label: 'Mixed', emoji: '🎲', desc: 'A surprise mix of games' },
 ];

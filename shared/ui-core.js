@@ -192,7 +192,7 @@ export function renderRewards(mount, r, { onBack }) {
 }
 
 /** Parent area (behind the gate): scorecard + settings. On-device only. */
-export function renderParent(mount, data, { onReset, onToggleAudio, onBack }) {
+export function renderParent(mount, data, { onReset, onToggleAudio, onSetLessonLength, onBack }) {
   mount.innerHTML = '';
   const wrap = el('div', { class: 'screen parent' });
   wrap.append(el('h2', {}, 'For grown-ups'));
@@ -214,6 +214,18 @@ export function renderParent(mount, data, { onReset, onToggleAudio, onBack }) {
     wrap.append(el('div', { class: 'sc-sub' }, 'Recent sessions'), trend);
   } else {
     wrap.append(el('div', { class: 'sc-sub' }, 'Play a session to see progress here.'));
+  }
+
+  // Lesson length (parent-settable; default 10) — how many problems per lesson before the reward.
+  if (onSetLessonLength && data.lessonChoices) {
+    wrap.append(el('div', { class: 'sc-sub' }, 'Lesson length (problems per lesson)'));
+    const ll = el('div', { class: 'chips' });
+    data.lessonChoices.forEach((n) => {
+      const b = el('button', { class: 'chip' + (n === data.lessonLength ? ' on' : ''), 'aria-pressed': String(n === data.lessonLength) }, String(n));
+      b.addEventListener('click', () => onSetLessonLength(n));
+      ll.append(b);
+    });
+    wrap.append(ll);
   }
 
   const audioBtn = el('button', { class: 'btn btn-ghost' }, data.audioEnabled ? '🔊  Sound: On' : '🔇  Sound: Off');
