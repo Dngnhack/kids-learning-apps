@@ -1,5 +1,7 @@
-// main.js — app bootstrap + session loop across modes. Ties SRS + storage + audio + rewards +
-// game + trace + UI. No network calls anywhere. Everything runs on-device.
+// main.js (Letters) — app bootstrap + session loop. Ties SRS + storage + audio + rewards + game +
+// trace + UI. No network calls anywhere; everything runs on-device (offline, zero-data, parent-gated).
+// PHASE 1 only: Picture-starts-with (emoji → letter, letter-NAME audio) + Letter Trace (lowercase
+// stroke geometry). Phoneme stages (Letter↔Sound, Phonics, Mixed) are Phase 2 and shown locked.
 
 import * as srs from '../../shared/srs.js';
 import * as audio from '../../shared/audio.js';
@@ -7,51 +9,36 @@ import * as rewards from '../../shared/rewards.js';
 import { makeStorage } from '../../shared/storage.js';
 import { showParentGate } from '../../shared/parentGate.js';
 import { buildQuestion, isCorrect } from './game.js';
-import { DECK_META, idsForRange, sampleIds, getCard, COUNT_CAP, ENUM_CAP } from './decks/numbers.js';
-import { traceDigits } from './trace.js';
+import { DECK_META, getCard, lettersForRange, lettersForRangeLimited, idsFor } from './decks/letters.js';
+import { TRACEABLE } from './trace.js';
 import * as ui from './ui.js';
 
-const DEFAULT_LESSON = 10; // a "lesson" defaults to 10 problems (parent-settable)
+const DEFAULT_LESSON = 10;                       // a "lesson" defaults to 10 problems (parent-settable)
 const LESSON_CHOICES = [5, 10, 15, 20];
 const sessionSize = () => LESSON_CHOICES.includes(settings.lessonLength) ? settings.lessonLength : DEFAULT_LESSON;
-const BIG_SAMPLE = 28;
+const PIC_CHOICES = 4;                            // picture game shows 4 large letter buttons (3-4 per spec)
 const mount = /** @type {HTMLElement} */ (document.getElementById('app'));
-const store = makeStorage('dl-kids-numbers');
+const store = makeStorage('dl-kids-letters');
 
-let settings = store.loadSettings({ rangeKey: '10', mode: 'trace', audio: true, lessonLength: DEFAULT_LESSON });
-if (!settings.rangeKey && settings.max) settings.rangeKey = String(settings.max); // migrate old saves
+let settings = store.loadSettings({ rangeKey: 'g1', mode: 'trace', audio: true, lessonLength: DEFAULT_LESSON });
 audio.setEnabled(settings.audio !== false);
 let progress = srs.reconcile(store.load() || srs.createProgress(DECK_META.ids), DECK_META.ids);
 
 /** @type {string[]} */ let session = [];
 let pos = 0, missed = false, startTime = 0;
 let stats = { total: 0, correct: 0 };
+let curRangeLetters = [];                         // the active range's letters (picture distractor pool)
 
 const now = () => (typeof performance !== 'undefined' ? performance.now() : 0);
-const rangeMax = () => Number(settings.rangeKey) || 10;
 
-/** Resolve the concrete mode for a question — 'mixed' picks a random AVAILABLE mode for this value
- * (auto-excludes count-objects above the cap, and keeps trace to sensible low numbers). */
-function concreteMode(value) {
-  if (settings.mode !== 'mixed') return settings.mode;
-  const opts = ['hear', 'matchAudio'];
-  if (value <= COUNT_CAP) opts.push('count');
-  opts.push('trace'); // trace any value now — multi-digit numbers trace one box per digit (trace.js)
-  return opts[Math.floor(Math.random() * opts.length)];
+/** The letter ids in play for the chosen activity + range. Trace is limited to letters we have
+ *  geometry for; picture uses the whole range (every letter has a curated emoji). */
+function activeLetters() {
+  if (settings.mode === 'trace') return lettersForRangeLimited(settings.rangeKey, TRACEABLE);
+  return lettersForRange(settings.rangeKey);
 }
 
-function activeIds() {
-  const max = rangeMax();
-  // Trace now supports multi-digit numbers (one box per digit), so it spans the full enumerable
-  // range like recognition does — sampled above ENUM_CAP so we never enumerate 1000 SRS items.
-  if (settings.mode === 'trace') return max <= ENUM_CAP ? idsForRange(max) : sampleIds(max, BIG_SAMPLE);
-  if (settings.mode === 'count') return idsForRange(Math.min(max, COUNT_CAP));
-  // recognition OR mixed: span the full range (sampled if big); per-question mode excludes count/trace by value
-  if (max <= ENUM_CAP) return idsForRange(max);
-  return sampleIds(max, BIG_SAMPLE);
-}
-
-/** Home is now the step-by-step WIZARD ( / AC1): Activity → Range → #Questions, then start. */
+/** Home is the step-by-step WIZARD ( / AC1): Activity → Range → #Questions, then start. */
 function home() {
   ui.renderWizard(mount, { activity: settings.mode, rangeKey: settings.rangeKey, count: sessionSize() }, {
     onStart: startSession,
@@ -60,8 +47,8 @@ function home() {
   });
 }
 
-/** Begin a lesson with the wizard's choice (activity/range/count). Persists the picks so the wizard
- *  re-opens pre-selected. The count fix (srs.pickSession) guarantees EXACTLY `count` problems. */
+/** Begin a lesson with the wizard's choice (activity/range/count). Persists picks so the wizard
+ *  re-opens pre-selected. srs.pickSession guarantees EXACTLY `count` problems even for a small set. */
 function startSession(choice) {
   if (choice) {
     settings.mode = choice.activity;
@@ -69,54 +56,57 @@ function startSession(choice) {
     settings.lessonLength = choice.count;
     store.saveSettings(settings);
   }
-  const ids = activeIds();
+  curRangeLetters = lettersForRange(settings.rangeKey);
+  const letters = activeLetters();
+  const ids = idsFor(letters);
   srs.reconcile(progress, ids);
   session = srs.pickSession(progress, ids, sessionSize());
   pos = 0; stats = { total: 0, correct: 0 };
   nextQuestion();
 }
 
-/** Abandon the current lesson: stop any speech and return to the home screen (Fix 7 — Quit). */
 function quitToHome() { audio.stopSpeech(); home(); }
-/** Add the shared in-lesson Home/Quit control to whatever play/trace screen is mounted. */
 function addQuit() { ui.mountQuit(mount.querySelector('.screen'), quitToHome); }
 
 function nextQuestion() {
   if (pos >= session.length) return finishSession();
   missed = false; stats.total += 1; startTime = now();
   const id = session[pos];
-  const value = getCard(id).value;
-  const mode = concreteMode(value);
+  const card = getCard(id);
 
-  if (mode === 'trace') {
-    ui.renderTrace(mount, value, traceDigits(value), `${pos + 1} / ${session.length}`, { onComplete: () => onTraceDone(id) });
+  if (settings.mode === 'trace') {
+    ui.renderTrace(mount, card.letter, `${pos + 1} / ${session.length}`, { onComplete: () => onTraceDone(id) });
     addQuit();
-    audio.speak('Trace the ' + value);
+    audio.speak('Trace the ' + card.name);            // letter NAME — accurate TTS
     return;
   }
-  const qMax = mode === 'count' ? Math.min(rangeMax(), COUNT_CAP) : rangeMax();
-  const q = buildQuestion(id, { mode, max: qMax });
-  const ctrl = ui.renderQuestion(mount, q, `${pos + 1} / ${session.length}`, {
+
+  // picture starts-with
+  const q = buildQuestion(id, { pool: curRangeLetters, n: PIC_CHOICES });
+  const ctrl = ui.renderPicture(mount, q, `${pos + 1} / ${session.length}`, {
     onSubmit: (picked) => handleAnswer(q, picked, ctrl),
-    onHear: (n) => audio.speak(String(n)),
+    onHear: (qq) => speakObject(qq),
   });
   addQuit();
-  if (q.mode === 'hear') audio.speak(String(q.value));
-  else if (q.mode === 'count') audio.speak('How many?');
+  speakObject(q);                                      // "Apple. Which letter does it start with?"
 }
 
+/** Say the object NAME (accurate TTS) + the prompt. NO phonemes — Phase 2 only. */
+function speakObject(q) { audio.speak(`${q.word}. Which letter?`); }
+
 function handleAnswer(q, picked, ctrl) {
-  if (q.mode !== 'matchAudio') audio.speak(String(picked)); // say the chosen number
+  const pickedCard = getCard('L' + picked);
   if (isCorrect(q, picked)) {
     if (!missed) { srs.recordAnswer(progress, q.id, true, { responseMs: now() - startTime }); stats.correct += 1; }
     store.save(progress);
     ctrl.markCorrect();
+    audio.speak(`${q.name} for ${q.word}`);            // "S for sun" — letter NAME + object NAME, accurate
     rewardCorrect();
-    setTimeout(() => { pos += 1; nextQuestion(); }, 1250);
+    setTimeout(() => { pos += 1; nextQuestion(); }, 1400);
   } else {
     if (!missed) { srs.recordAnswer(progress, q.id, false, { responseMs: now() - startTime }); store.save(progress); missed = true; }
     ctrl.markWrongRetry();
-    audio.tone('soft'); audio.speak('Try again'); // gentle + encouraging; child can retry
+    audio.tone('soft'); audio.speak('Try again');      // gentle + encouraging; child can retry
   }
 }
 
@@ -140,9 +130,9 @@ function rewardCorrect() {
 
 function finishSession() {
   const accuracy = stats.total ? stats.correct / stats.total : 0;
-  store.appendSession({ t: new Date().toISOString(), mode: settings.mode, max: rangeMax(), total: stats.total, correct: stats.correct, accuracy });
-  const lesson = rewards.completeLesson(store);          // end-of-lesson sticker
-  const day = rewards.recordDay(store);                  // positive-only day streak
+  store.appendSession({ t: new Date().toISOString(), mode: settings.mode, range: settings.rangeKey, total: stats.total, correct: stats.correct, accuracy });
+  const lesson = rewards.completeLesson(store);
+  const day = rewards.recordDay(store);
   audio.fireworks(); audio.speak('Lesson complete! Great job!');
   ui.renderDone(mount, { onAgain: () => startSession(), onHome: home, onRewards: openRewards,
     lesson: { sticker: lesson.sticker, newSticker: lesson.newSticker, streak: day.streak, streakBadge: day.newStreakBadge } });
@@ -157,7 +147,7 @@ function openParentGate() {
 }
 
 function openParent() {
-  const ids = DECK_META.ids; // stable base deck (0..100) for a meaningful progress denominator
+  const ids = DECK_META.ids; // stable base deck (a..z) for a meaningful progress denominator
   ui.renderParent(mount, { summary: srs.summary(progress, ids), history: store.getHistory(), audioEnabled: audio.isEnabled(), lessonLength: sessionSize(), lessonChoices: LESSON_CHOICES }, {
     onReset: () => { store.reset(); progress = srs.createProgress(DECK_META.ids); openParent(); },
     onToggleAudio: () => { const on = !audio.isEnabled(); audio.setEnabled(on); settings.audio = on; store.saveSettings(settings); openParent(); },

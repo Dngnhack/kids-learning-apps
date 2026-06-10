@@ -17,7 +17,7 @@ export const mountQuit = core.mountQuit;
 export const LESSON_COUNTS = [5, 10, 15, 20];
 
 /**
- * CONTEXT-AWARE options for the wizard (KWS-001 / AC2). The "range" here is the difficulty LEVEL
+ * CONTEXT-AWARE options for the wizard ( / AC2). The "range" here is the difficulty LEVEL
  * (operation × digit-count). The Count activity renders physical object groups, so it only makes
  * sense at the 1-digit levels (operands ≤ 9 are countable); offering Add/Take-away 2- or 3-digit for
  * Count would show un-renderable groups. Solve / Listen / Mixed work at every level.

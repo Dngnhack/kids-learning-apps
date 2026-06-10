@@ -1,4 +1,4 @@
-// ui-core.js — SHARED generic DOM rendering used by all kids' apps: home
+// ui-core.js — SHARED generic DOM rendering used by all kids' apps : home
 // (level + mode pickers + rewards button), select-then-submit answer panel, celebrations,
 // gentle retry, done, parent scorecard, rewards shelf, gate mount.
 // App-specific QUESTION screens live in each app's own ui.js. Reduced-motion + mute respected.
@@ -126,7 +126,7 @@ function showQuitConfirm(screen, onQuit) {
 }
 
 /**
- * SHARED step-by-step selection WIZARD (KWS-001 / AC1+AC2) — replaces the all-at-once start menu.
+ * SHARED step-by-step selection WIZARD ( / AC1+AC2) — replaces the all-at-once start menu.
  * Three sequential screens: ACTIVITY (game/mode) → RANGE → # QUESTIONS. Each screen fades/slides OUT
  * on a pick and the next slides IN; a Back button steps to the previous screen; after screen 3 the
  * lesson starts via onStart(choice). Reduced-motion is respected (the CSS disables the transforms).
@@ -208,10 +208,15 @@ export function renderWizard(mount, cfg, handlers) {
       wrap.append(el('div', { class: 'pick-label' }, 'Pick a game'));
       const grid = el('div', { class: 'mode-grid' });
       activities.forEach((m, i) => {
-        const b = el('button', { class: 'mode-tile m' + (i % 4) + (m.id === choice.activity ? ' on' : '') });
-        b.append(el('span', { class: 'mode-emoji', 'aria-hidden': 'true' }, m.emoji), el('span', { class: 'mode-name' }, m.label));
-        b.setAttribute('aria-label', m.label + ': ' + m.desc);
-        b.addEventListener('click', () => { choice.activity = m.id; reconcileOptions(); go(1); });
+        // LOCKED activities (e.g. "coming soon" stages) render greyed with a 🔒 and do NOT advance the
+        // wizard — the progression stays visible without enabling an unfinished stage. Additive: apps
+        // that pass no `locked` flag (Numbers/Math) are unaffected.
+        const locked = !!m.locked;
+        const b = el('button', { class: 'mode-tile m' + (i % 4) + (m.id === choice.activity && !locked ? ' on' : '') + (locked ? ' locked' : '') });
+        b.append(el('span', { class: 'mode-emoji', 'aria-hidden': 'true' }, locked ? '🔒' : m.emoji), el('span', { class: 'mode-name' }, m.label));
+        b.setAttribute('aria-label', m.label + ': ' + m.desc + (locked ? ' (coming soon)' : ''));
+        if (locked) { b.disabled = true; b.setAttribute('aria-disabled', 'true'); }
+        else b.addEventListener('click', () => { choice.activity = m.id; reconcileOptions(); go(1); });
         grid.append(b);
       });
       wrap.append(grid);
@@ -383,7 +388,7 @@ export function renderRewards(mount, r, { onBack, onAlbum }) {
 }
 
 /**
- * SHARED STICKER ALBUM / photo-book screen (KWS-001 / AC5). A persistent collectible book: every
+ * SHARED STICKER ALBUM / photo-book screen ( / AC5). A persistent collectible book: every
  * sticker slot is shown — FILLED (earned, in colour) or EMPTY (a dashed "not yet" slot) — and fills
  * over time as lessons are finished. Pageable when the collection is large (a fixed page size keeps
  * a phone tidy). Reads the existing local rewards store via the passed model (zero new data, survives

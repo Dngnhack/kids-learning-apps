@@ -29,7 +29,7 @@ export function reconcile(progress, ids) {
 
 /**
  * Weighted session pick: weaker box + less-seen + slower-known recur more (adaptive frequency).
- * GUARANTEES EXACTLY `size` problems (KWS-001 count-bug fix). When the deck has FEWER unique cards
+ * GUARANTEES EXACTLY `size` problems ( count-bug fix). When the deck has FEWER unique cards
  * than the requested size (e.g. a tiny trace range ≈ 10 cards but the child picked 20), the unique
  * cards are drawn first (weighted, no repeats), then the session is PADDED by cycling the deck —
  * re-running the same weighted draw over the full pool for each extra slot — so we always reach N.

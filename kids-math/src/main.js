@@ -41,7 +41,7 @@ function concreteMode(q) {
   return opts[Math.floor(Math.random() * opts.length)];
 }
 
-/** Home is now the step-by-step WIZARD (KWS-001 / AC1): Activity → Level → #Questions, then start. */
+/** Home is now the step-by-step WIZARD ( / AC1): Activity → Level → #Questions, then start. */
 function home() {
   ui.renderWizard(mount, { activity: settings.mode, rangeKey: settings.rangeKey, count: sessionSize() }, {
     onStart: startSession,

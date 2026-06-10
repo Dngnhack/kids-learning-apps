@@ -18,7 +18,7 @@ export const mountQuit = core.mountQuit;
 export const LESSON_COUNTS = [5, 10, 15, 20];
 
 /**
- * CONTEXT-AWARE options for the wizard (KWS-001 / AC2). Given the chosen activity (mode) return the
+ * CONTEXT-AWARE options for the wizard ( / AC2). Given the chosen activity (mode) return the
  * ranges + question-counts that make sense for it:
  *   • count  — objects are only renderable up to COUNT_CAP (20), so cap ranges at 20 (no "Up to 50/100/1000").
  *   • trace  — supports every range (multi-digit traces one box per digit) → all ranges.

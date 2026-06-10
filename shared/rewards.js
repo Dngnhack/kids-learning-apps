@@ -9,7 +9,7 @@
 import { MAX_BOX } from './srs.js';
 
 // Collectible set — one earned per completed LESSON (deterministic, high-water, zero asset weight).
-// A long, satisfying collection runway (≥40 distinct, KWS-001/AC4): every finished lesson simply
+// A long, satisfying collection runway (≥40 distinct, /AC4): every finished lesson simply
 // unlocks the NEXT sticker in order; once unlocked it's kept forever (no FOMO/loot/countdown/random).
 // Ordered loosely easy→special so the cadence feels like steady, earned progress. All kid-friendly,
 // positive, broadly-supported emoji — grouped (cute animals → sea/sky → nature → treats → sky/space).

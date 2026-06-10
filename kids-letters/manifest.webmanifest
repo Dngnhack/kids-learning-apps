@@ -1,0 +1,16 @@
+{
+  "name": "DL Letters — Read & Trace",
+  "short_name": "DL Letters",
+  "description": "A simple, ad-free, offline alphabet game for young learners — first letters & letter tracing. No data collected.",
+  "lang": "en-US",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f5f3ff",
+  "theme_color": "#7c3aed",
+  "categories": ["education", "kids"],
+  "icons": [
+    { "src": "./assets/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
