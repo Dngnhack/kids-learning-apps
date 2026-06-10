@@ -1,16 +1,20 @@
 // main.js (Letters) — app bootstrap + session loop. Ties SRS + storage + audio + rewards + game +
 // trace + UI. No network calls anywhere; everything runs on-device (offline, zero-data, parent-gated).
-// PHASE 1 only: Picture-starts-with (emoji → letter, letter-NAME audio) + Letter Trace (lowercase
-// stroke geometry). Phoneme stages (Letter↔Sound, Phonics, Mixed) are Phase 2 and shown locked.
+// Stages: Trace (stroke geometry) + Picture-starts-with (emoji → letter) + the sound-based phonics
+// stages (Letter↔Sound, Sound↔Letter, Blending) + a Mixed capstone. All phoneme audio routes through
+// the phoneme seam (phoneme-audio.js): a recorded clip plays if present, else an interim TTS sound —
+// the stage logic is identical either way, so swapping in real audio later needs no changes here.
 
 import * as srs from '../../shared/srs.js';
 import * as audio from '../../shared/audio.js';
+import { speakLetterName, stopClips, playCheer } from '../../shared/clips.js';
 import * as rewards from '../../shared/rewards.js';
 import { makeStorage } from '../../shared/storage.js';
 import { showParentGate } from '../../shared/parentGate.js';
-import { buildQuestion, isCorrect } from './game.js';
+import { buildQuestion, buildPhonemeQuestion, isCorrect, SOUND_MODES, pickMixedMode } from './game.js';
 import { DECK_META, getCard, lettersForRange, lettersForRangeLimited, idsFor } from './decks/letters.js';
 import { TRACEABLE } from './trace.js';
+import * as phoneme from './phoneme-audio.js';
 import * as ui from './ui.js';
 
 const DEFAULT_LESSON = 10;                       // a "lesson" defaults to 10 problems (parent-settable)
@@ -32,13 +36,14 @@ let curRangeLetters = [];                         // the active range's letters 
 const now = () => (typeof performance !== 'undefined' ? performance.now() : 0);
 
 /** The letter ids in play for the chosen activity + range. Trace is limited to letters we have
- *  geometry for; picture uses the whole range (every letter has a curated emoji). */
+ *  geometry for; every other stage uses the whole range (each letter has a curated emoji + a sound
+ *  via the phoneme seam). */
 function activeLetters() {
   if (settings.mode === 'trace') return lettersForRangeLimited(settings.rangeKey, TRACEABLE);
   return lettersForRange(settings.rangeKey);
 }
 
-/** Home is the step-by-step WIZARD ( / AC1): Activity → Range → #Questions, then start. */
+/** Home is the step-by-step WIZARD: Activity → Range → #Questions, then start. */
 function home() {
   ui.renderWizard(mount, { activity: settings.mode, rangeKey: settings.rangeKey, count: sessionSize() }, {
     onStart: startSession,
@@ -61,46 +66,82 @@ function startSession(choice) {
   const ids = idsFor(letters);
   srs.reconcile(progress, ids);
   session = srs.pickSession(progress, ids, sessionSize());
-  pos = 0; stats = { total: 0, correct: 0 };
+  pos = 0; stats = { total: 0, correct: 0 }; prevMixedMode = null;
   nextQuestion();
 }
 
-function quitToHome() { audio.stopSpeech(); home(); }
+function quitToHome() { stopClips(); phoneme.stopPhoneme(); audio.stopSpeech(); home(); }
 function addQuit() { ui.mountQuit(mount.querySelector('.screen'), quitToHome); }
+
+let prevMixedMode = null;                            // last mixed per-question mode (avoid repeats)
+
+/** The per-question mode: for 'mixed' pick one of the taught stage types; else the chosen mode. */
+function questionMode() {
+  if (settings.mode !== 'mixed') return settings.mode;
+  prevMixedMode = pickMixedMode(prevMixedMode);
+  return prevMixedMode;
+}
 
 function nextQuestion() {
   if (pos >= session.length) return finishSession();
   missed = false; stats.total += 1; startTime = now();
   const id = session[pos];
   const card = getCard(id);
+  const progressText = `${pos + 1} / ${session.length}`;
+  const mode = questionMode();
 
-  if (settings.mode === 'trace') {
-    ui.renderTrace(mount, card.letter, `${pos + 1} / ${session.length}`, { onComplete: () => onTraceDone(id) });
+  if (mode === 'trace') {
+    ui.renderTrace(mount, card.letter, progressText, { onComplete: () => onTraceDone(id) });
     addQuit();
-    audio.speak('Trace the ' + card.name);            // letter NAME — accurate TTS
+    speakLetterName(card.letter);                     // letter NAME via bundled clip (primary)
     return;
   }
 
-  // picture starts-with
-  const q = buildQuestion(id, { pool: curRangeLetters, n: PIC_CHOICES });
-  const ctrl = ui.renderPicture(mount, q, `${pos + 1} / ${session.length}`, {
+  if (mode === 'picture') {
+    const q = buildQuestion(id, { pool: curRangeLetters, n: PIC_CHOICES });
+    const ctrl = ui.renderPicture(mount, q, progressText, {
+      onSubmit: (picked) => handleAnswer(q, picked, ctrl),
+      onHear: (qq) => speakObject(qq),
+    });
+    addQuit();
+    speakObject(q);                                    // "Apple. Which letter does it start with?"
+    return;
+  }
+
+  // sound-based stage (letterSound / soundLetter / phonics) — audio via the phoneme seam.
+  const q = buildPhonemeQuestion(mode, id, { pool: curRangeLetters, n: PIC_CHOICES });
+  const ctrl = ui.renderSound(mount, q, progressText, {
     onSubmit: (picked) => handleAnswer(q, picked, ctrl),
-    onHear: (qq) => speakObject(qq),
+    onHear: (letter) => phoneme.playPhoneme(letter),  // letterSound: play a candidate option's sound
+    onHearPrompt: (qq) => playPrompt(qq),             // replay the prompt sound(s)
   });
   addQuit();
-  speakObject(q);                                      // "Apple. Which letter does it start with?"
+  playPrompt(q);
 }
 
-/** Say the object NAME (accurate TTS) + the prompt. NO phonemes — Phase 2 only. */
+/** Play the prompt audio for a sound stage (always through the seam — clip or interim TTS). */
+function playPrompt(q) {
+  if (q.mode === 'phonics') {
+    // blend: each sound in order, paced, then the whole (TTS-accurate) word.
+    q.sounds.forEach((l, i) => setTimeout(() => phoneme.playPhoneme(l), i * 750));
+    setTimeout(() => audio.speak(q.word), q.sounds.length * 750 + 250);
+  } else {
+    // letterSound + soundLetter both play the target letter's SOUND.
+    phoneme.playPhoneme(q.play || q.letter);
+  }
+}
+
+/** Say the object NAME (accurate TTS) + the prompt. NO phonemes — picture uses the object name. */
 function speakObject(q) { audio.speak(`${q.word}. Which letter?`); }
 
 function handleAnswer(q, picked, ctrl) {
-  const pickedCard = getCard('L' + picked);
   if (isCorrect(q, picked)) {
     if (!missed) { srs.recordAnswer(progress, q.id, true, { responseMs: now() - startTime }); stats.correct += 1; }
     store.save(progress);
     ctrl.markCorrect();
-    audio.speak(`${q.name} for ${q.word}`);            // "S for sun" — letter NAME + object NAME, accurate
+    if (q.mode === 'picture') audio.speak(`${q.name} for ${q.word}`); // "S for sun" — phrase, TTS
+    else if (q.mode === 'phonics') audio.speak(q.word);               // confirm the blended word — TTS
+    else speakLetterName(q.name);                                     // letter NAME confirm via bundled clip
     rewardCorrect();
     setTimeout(() => { pos += 1; nextQuestion(); }, 1400);
   } else {
@@ -122,10 +163,21 @@ function rewardCorrect() {
   const prevPeak = store.loadRewards().peak || 0;
   const r = rewards.update(store, progress);
   const badge = rewards.newBadge(prevPeak, r.peak);
-  audio.tone('good'); audio.cheer(); audio.encourage();
+  // Synthesized WebAudio reward chime (separate path) — fires immediately, always.
+  audio.tone('good'); audio.cheer();
   const screen = mount.querySelector('.screen') || mount;
-  if (badge) { ui.celebrate(screen, true); audio.fireworks(); audio.speak(`New badge! ${badge.name}`); }
-  else { ui.celebrate(screen, false); }
+  if (badge) {
+    // Big moment: synthesized fireworks + the badge announcement (TTS). No clip cheer here — the badge
+    // name is the spoken reward, so we don't pile a second voice on top.
+    ui.celebrate(screen, true); audio.fireworks(); audio.speak(`New badge! ${badge.name}`);
+  } else {
+    ui.celebrate(screen, false);
+    // ONE random ORIGINAL cheer clip (our voice). Delayed so the just-spoken letter/word CONFIRMATION
+    // (speakLetterName / audio.speak, see handleAnswer) finishes first — sequence, not jumble. The next
+    // question's prompt later supersedes any tail (latest wins). Graceful skip if the clip fails — the
+    // WebAudio chime above already celebrated. Replaces the old TTS encourage() (one praise voice, not two).
+    setTimeout(() => { playCheer(); }, 900);
+  }
 }
 
 function finishSession() {

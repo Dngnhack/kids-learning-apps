@@ -1,0 +1,96 @@
+{
+  "engine": "windows-sapi",
+  "voice": "Microsoft Zira Desktop (en-US)",
+  "format": "mp3",
+  "sampleRate": 22050,
+  "bitrate": "48k",
+  "generatedAt": "2026-06-10T16:44:14.168Z",
+  "note": "ORIGINAL warm celebratory cheer phrases, spoken in our own SAPI voice. CIPP/copyright-CLEAN: no third-party characters, brands, jingles, or copied clips. Output owned by Digital Legends. Played at random (one per celebration) alongside the synthesized WebAudio reward chime.",
+  "count": 12,
+  "clips": [
+    {
+      "name": "cheer-01",
+      "text": "Way to go!",
+      "file": "cheer-01.mp3",
+      "durationSec": 1.799,
+      "bytes": 11354
+    },
+    {
+      "name": "cheer-02",
+      "text": "Great job!",
+      "file": "cheer-02.mp3",
+      "durationSec": 1.849,
+      "bytes": 11667
+    },
+    {
+      "name": "cheer-03",
+      "text": "You did it!",
+      "file": "cheer-03.mp3",
+      "durationSec": 1.814,
+      "bytes": 11511
+    },
+    {
+      "name": "cheer-04",
+      "text": "Awesome!",
+      "file": "cheer-04.mp3",
+      "durationSec": 1.844,
+      "bytes": 11667
+    },
+    {
+      "name": "cheer-05",
+      "text": "Nice work!",
+      "file": "cheer-05.mp3",
+      "durationSec": 1.889,
+      "bytes": 11981
+    },
+    {
+      "name": "cheer-06",
+      "text": "Hooray!",
+      "file": "cheer-06.mp3",
+      "durationSec": 1.569,
+      "bytes": 10100
+    },
+    {
+      "name": "cheer-07",
+      "text": "Super!",
+      "file": "cheer-07.mp3",
+      "durationSec": 1.689,
+      "bytes": 10727
+    },
+    {
+      "name": "cheer-08",
+      "text": "You're a star!",
+      "file": "cheer-08.mp3",
+      "durationSec": 1.964,
+      "bytes": 12451
+    },
+    {
+      "name": "cheer-09",
+      "text": "Well done!",
+      "file": "cheer-09.mp3",
+      "durationSec": 1.744,
+      "bytes": 11040
+    },
+    {
+      "name": "cheer-10",
+      "text": "Keep it up!",
+      "file": "cheer-10.mp3",
+      "durationSec": 1.834,
+      "bytes": 11667
+    },
+    {
+      "name": "cheer-11",
+      "text": "Fantastic!",
+      "file": "cheer-11.mp3",
+      "durationSec": 2.179,
+      "bytes": 13705
+    },
+    {
+      "name": "cheer-12",
+      "text": "Wow!",
+      "file": "cheer-12.mp3",
+      "durationSec": 1.404,
+      "bytes": 9003
+    }
+  ]
+}

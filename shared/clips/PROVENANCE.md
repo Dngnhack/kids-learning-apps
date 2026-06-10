@@ -25,6 +25,18 @@ browser `speechSynthesis` on the primary path.
 - Number building-block words: `zero` … `nineteen`, `twenty`…`ninety`, `hundred`, `thousand` (30).
 - Letter NAMES: `letter-a` … `letter-z` (26). Accurate via TTS (letter names, not sounds).
 
+## `cheers/` — ORIGINAL celebratory cheer clips (SHIPPED)
+12 short, warm, **original/generic** kid-praise phrases, generated the SAME way (Windows SAPI / Zira →
+ffmpeg → mono 22050 Hz 48 kbps mp3) and stored as `cheers/cheer-01.mp3` … `cheers/cheer-12.mp3` with a
+`cheers/cheers-manifest.json`. Phrases: *Way to go! · Great job! · You did it! · Awesome! · Nice work! ·
+Hooray! · Super! · You're a star! · Well done! · Keep it up! · Fantastic! · Wow!* (~1.4–2.2s each, ~134 KB total).
+- **Use:** `playCheer()` in `apps/shared/clips.js` picks ONE at random per correct answer and plays it via
+  the shared no-overlap clip player, **alongside** the synthesized WebAudio reward chime (which is unchanged).
+- **CIPP / COPYRIGHT — CLEAN:** these are **our own words in our own SAPI voice**. **NO copyrighted or
+  trademarked characters, names, jingles, brands, or copied clips** (no Bluey / Paw Patrol / Disney / etc.).
+  Using third-party kids-IP audio would be copyright + trademark + false-endorsement infringement — none is
+  present here. The generated output is owned by Digital Legends.
+
 ## `phoneme-candidates/` — NOT SHIPPED to the play path
 26 letter-SOUND candidates + a manifest flagged `STATUS: CANDIDATE — NOT VERIFIED`. Build-time TTS
 commonly **mangles isolated phonemes**. These are **not wired** into the letters app. An

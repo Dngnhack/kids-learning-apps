@@ -136,10 +136,17 @@ export function renderTrace(mount, value, digits, progressText, { onComplete }) 
     const svg = mk('svg');
     svg.setAttribute('viewBox', `0 0 ${TRACE_BOX.w} ${TRACE_BOX.h}`); svg.setAttribute('class', 'trace-svg');
 
-    // RAINBOW gradient for the trail (fun + clearly shows progress along the stroke)
+    // RAINBOW gradient for the trail (fun + clearly shows progress along the stroke).
+    // gradientUnits MUST be userSpaceOnUse: with the default objectBoundingBox units, a perfectly
+    // STRAIGHT stroke (4's stem, 5's top bar, 7's bar — all axis-aligned polylines) has a ZERO-AREA
+    // bounding box, and per the SVG spec the gradient paint then renders NOTHING — those strokes'
+    // rainbow trails were invisible (the "stroke 2+ never colors" bug). User-space coords spanning
+    // the glyph box paint EVERY stroke, straight or curved, with one consistent rainbow.
     const defs = mk('defs');
     const grad = mk('linearGradient'); grad.setAttribute('id', `rainbow-${uid}`);
-    grad.setAttribute('x1', '0'); grad.setAttribute('y1', '0'); grad.setAttribute('x2', '1'); grad.setAttribute('y2', '1');
+    grad.setAttribute('gradientUnits', 'userSpaceOnUse');
+    grad.setAttribute('x1', '0'); grad.setAttribute('y1', '0');
+    grad.setAttribute('x2', String(TRACE_BOX.w)); grad.setAttribute('y2', String(TRACE_BOX.h));
     [['0', '#e11d48'], ['.2', '#f59e0b'], ['.4', '#eab308'], ['.6', '#16a34a'], ['.8', '#2563eb'], ['1', '#7c3aed']]
       .forEach(([o, c]) => { const st = mk('stop'); st.setAttribute('offset', o); st.setAttribute('stop-color', c); grad.append(st); });
     defs.append(grad); svg.append(defs);
@@ -184,7 +191,8 @@ export function renderTrace(mount, value, digits, progressText, { onComplete }) 
     stage.append(svg);
 
     const TOL = 16;
-    let live = false, finished = false;
+    const SAMPLE = 6;                 // interpolation step (box units) between successive move samples
+    let live = false, finished = false, last = null; // last = previous normalized point while down
     const norm = (e) => {
       const r = svg.getBoundingClientRect();
       const cx = e.touches ? e.touches[0].clientX : e.clientX;
@@ -214,30 +222,59 @@ export function renderTrace(mount, value, digits, progressText, { onComplete }) 
       });
     };
 
+    // feed ONE normalized sample to the tracer, folding the result into the accumulator
+    const feed = (acc, x, y, isDown) => {
+      const r = isDown ? tracer.down(x, y) : tracer.move(x, y);
+      acc.moved = acc.moved || r.moved; acc.rejected = acc.rejected || r.rejected;
+    };
     const handle = (e, isDown) => {
       if (!live) return;                                             // only the active box accepts input
-      const [x, y] = norm(e);
-      const res = isDown ? tracer.down(x, y) : tracer.move(x, y);
-      if (res.moved) { drawTrails(); markNext(); clearCue(); }       // progressed in order → extend the rainbow
-      else if (res.rejected) { showLiftCue(); }                      // stroke done, finger still down → must LIFT
+      if (e.cancelable) e.preventDefault();                          // never scroll/zoom/select mid-trace
+      // MOBILE SMOOTHNESS: a fast finger delivers batched/coalesced samples and can JUMP further than
+      // a checkpoint's tolerance in one event — which made the trace feel "stuck" mid-stroke. Process
+      // every coalesced sample AND interpolate between successive samples so no checkpoint is skipped.
+      const co = (!isDown && e.getCoalescedEvents) ? e.getCoalescedEvents() : null;
+      const samples = (co && co.length) ? co : [e];
+      const acc = { moved: false, rejected: false };
+      let x = 0, y = 0;
+      for (const ev of samples) {
+        [x, y] = norm(ev);
+        if (!isDown && last) {
+          const steps = Math.min(24, Math.floor(Math.hypot(x - last[0], y - last[1]) / SAMPLE));
+          for (let k = 1; k < steps; k++) feed(acc, last[0] + ((x - last[0]) * k) / steps, last[1] + ((y - last[1]) * k) / steps, false);
+        }
+        feed(acc, x, y, isDown);
+        last = [x, y];
+      }
+      if (acc.moved) { drawTrails(); markNext(); clearCue(); }       // progressed in order → extend the rainbow
+      else if (acc.rejected) { showLiftCue(); }                      // stroke done, finger still down → must LIFT
       else if (tracer.isDown() && nearestOnPath(digit, x, y).dist > TOL) { showCue(); } // off-path → no draw + gentle cue
       if (tracer.complete()) {                                       // this digit's final checkpoint reached
         finished = true; live = false;
         svg.removeEventListener('pointermove', onMove); svg.removeEventListener('pointerdown', onDown);
         svg.removeEventListener('pointerup', onUp); svg.removeEventListener('pointercancel', onUp);
-        svg.removeEventListener('pointerleave', onUp);
         onDone();
       }
     };
-    const onDown = (e) => handle(e, true);
+    const onDown = (e) => {
+      last = null;
+      // pointer CAPTURE: keep receiving moves even when the finger drifts past the box edge —
+      // without it the old pointerleave handler faked a LIFT mid-stroke (a real phone hiccup:
+      // the trace suddenly demanded a restart at the next start dot).
+      if (svg.setPointerCapture && e.pointerId != null) { try { svg.setPointerCapture(e.pointerId); } catch { /* not supported */ } }
+      handle(e, true);
+    };
     const onMove = (e) => handle(e, false);
-    const onUp = () => { if (!live) return; const lifted = tracer.needsLift(); tracer.up(); if (lifted) clearCue(); markNext(); }; // the LIFT arms the next stroke
+    const onUp = () => { last = null; if (!live) return; const lifted = tracer.needsLift(); tracer.up(); if (lifted) clearCue(); markNext(); }; // the LIFT arms the next stroke
 
     svg.addEventListener('pointerdown', onDown);
     svg.addEventListener('pointermove', onMove);
     svg.addEventListener('pointerup', onUp);
     svg.addEventListener('pointercancel', onUp);
-    svg.addEventListener('pointerleave', onUp);
+    // NOTE: no pointerleave→up — with pointer capture a finger drifting off the box no longer
+    // counts as a lift (that false lift broke multi-stroke tracing feel on phones).
+    // belt-and-braces for older mobile browsers that ignore touch-action: block native scrolling
+    svg.addEventListener('touchmove', (e) => { if (live && e.cancelable) e.preventDefault(); }, { passive: false });
 
     return {
       node: stage,

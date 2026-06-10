@@ -106,6 +106,28 @@ export function playSequence(names, opts = {}) {
   });
 }
 
+// ── celebratory CHEER clips ─────────────────────────────────────────────────────────
+// ORIGINAL warm praise phrases (our own SAPI voice — CIPP-clean, no third-party IP), shipped as
+// apps/shared/clips/cheers/cheer-01.mp3 … cheer-NN.mp3 (see scripts/audio-clips/gen-clips.mjs).
+// CHEER_COUNT must match the number generated. ONE cheer per celebration, picked at random; it rides
+// alongside the SYNTHESIZED WebAudio reward chime (audio.tone/cheer/fireworks) which stays as-is.
+const CHEER_COUNT = 12;
+const cheerName = (i) => `cheers/cheer-${String(i).padStart(2, '0')}`;
+
+/**
+ * Play ONE random celebratory cheer clip. Uses the shared single-clip player, so it inherits the
+ * first-tap unlock + no-overlap guard (a later clip/voice supersedes it — latest wins). Resolves
+ * true if it played/finished, false if muted/unsupported or the clip failed (caller just skips —
+ * the WebAudio chime still celebrates on its own). One cheer only; never stacked.
+ * @param {Function} [rng] random source (injectable for tests)
+ * @returns {Promise<boolean>}
+ */
+export function playCheer(rng = Math.random) {
+  if (!isEnabled() || !clipsSupported()) return Promise.resolve(false);
+  const i = 1 + Math.floor(rng() * CHEER_COUNT);
+  return playClip(cheerName(i));
+}
+
 /**
  * Speak a LETTER NAME via its bundled clip (PRIMARY), e.g. 'a' → letter-a.mp3 ("ay").
  * Falls back to runtime speechSynthesis (the uppercase letter) only if clips are unsupported or the

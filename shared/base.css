@@ -83,6 +83,18 @@ body {
 .hint { font-size: .9rem; color: #64748b; font-weight: 600; }
 .big-numeral { font-size: clamp(5rem, 28vw, 9rem); font-weight: 900; color: var(--pink); line-height: 1; }
 
+/* "Which letter does it start with?" — the EMOJI OBJECT is THE focal point of the screen.
+   Big on a phone (vw-driven) AND on desktop (high rem cap); tappable to hear the word again. */
+.pic-object {
+  font-size: clamp(6.5rem, 36vw, 11rem); line-height: 1.15;
+  background: var(--white); border: 6px solid #bfdbfe; border-radius: var(--radius);
+  padding: .4rem 1.6rem; cursor: pointer; box-shadow: 0 6px 0 #cbd5e1;
+  transition: transform .05s ease;
+}
+.pic-object:active { transform: translateY(3px); box-shadow: 0 3px 0 #cbd5e1; }
+.letters-pic { gap: .8rem; }                    /* slightly tighter so the big picture + tiles fit a phone */
+.letters-pic .hint { font-size: 1.25rem; font-weight: 800; color: var(--blue-dark); } /* the object's name under the picture */
+
 /* trace */
 /* Multi-digit row: one box per digit, left-to-right. The row's column width drives each box so a
    2-3 digit number stays inside a 360px phone (no overflow/clipping); single digit = one big box. */
@@ -95,6 +107,10 @@ body {
 .trace-stage.locked { opacity: .4; }                       /* a later digit, not reachable yet */
 .trace-stage.current { opacity: 1; }                       /* the digit being traced now */
 .trace-stage.done { opacity: .85; }                        /* a finished digit (kept visible) */
+/* touch-action:none on BOTH the stage and the svg — the browser must never steal the gesture for
+   scroll/zoom mid-trace (the #1 mobile tracing hiccup); callout/select off so a long-press while
+   tracing never pops a menu. */
+.trace-stage { touch-action: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
 .trace-svg { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; }
 .trace-track { fill: none; stroke: #cfe3ff; stroke-width: 28; stroke-linecap: round; stroke-linejoin: round; } /* bright wide hollow channel */
 .trace-outline { fill: none; stroke: #6aa3ec; stroke-width: 2.5; stroke-dasharray: 4 6; stroke-linecap: round; stroke-linejoin: round; opacity: .85; } /* dashed centerline guide */

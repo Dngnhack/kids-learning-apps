@@ -4,7 +4,7 @@
 import * as srs from '../../shared/srs.js';
 import * as audio from '../../shared/audio.js';
 import { speakNumber } from '../../shared/number-speech.js';
-import { stopClips } from '../../shared/clips.js';
+import { stopClips, playCheer } from '../../shared/clips.js';
 import * as rewards from '../../shared/rewards.js';
 import { makeStorage } from '../../shared/storage.js';
 import { showParentGate } from '../../shared/parentGate.js';
@@ -134,10 +134,22 @@ function rewardCorrect() {
   const prevPeak = store.loadRewards().peak || 0;
   const r = rewards.update(store, progress);
   const badge = rewards.newBadge(prevPeak, r.peak);
-  audio.tone('good'); audio.cheer(); audio.encourage();
+  // Synthesized WebAudio reward chime (separate path) — fires immediately, always.
+  audio.tone('good'); audio.cheer();
   const screen = mount.querySelector('.screen') || mount;
-  if (badge) { ui.celebrate(screen, true); audio.fireworks(); audio.speak(`New badge! ${badge.name}`); }
-  else { ui.celebrate(screen, false); }
+  if (badge) {
+    // Big moment: keep the synthesized fireworks + the badge announcement (TTS). No clip cheer here —
+    // the badge name is the spoken reward, so we don't pile a second voice on top.
+    ui.celebrate(screen, true); audio.fireworks(); audio.speak(`New badge! ${badge.name}`);
+  } else {
+    ui.celebrate(screen, false);
+    // ONE random ORIGINAL cheer clip (our voice). Delayed so the just-spoken number CONFIRMATION clip
+    // (speakNumber, same single-clip player) gets to finish first — sequence, not jumble. The cheer
+    // and the confirmation share the no-overlap player, so the cheer cleanly follows; the next
+    // question's prompt later supersedes any tail (latest wins). Graceful skip if the clip fails — the
+    // WebAudio chime above already celebrated. Replaces the old TTS encourage() (one praise voice, not two).
+    setTimeout(() => { playCheer(); }, 900);
+  }
 }
 
 function finishSession() {

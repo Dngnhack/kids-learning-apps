@@ -3,7 +3,7 @@
 // UNAMBIGUOUS emoji per letter for the "Picture starts-with" game. Emoji = copyright-clean (no
 // branded characters), zero asset weight, no GPU. Authored originally for Digital Legends.
 //
-// PEDAGOGY : the wizard "Range" = systematic-synthetic-
+// PEDAGOGY: the wizard "Range" = systematic-synthetic-
 // phonics GROUPS (Jolly-Phonics order), NOT A-Z, because Group 1 (s,a,t,i,p,n) lets a child build
 // real words almost immediately. An "All letters" A-Z set is offered as an alternate for the picture
 // game. Phoneme-dependent stages are PHASE 2 (curated audio clips) and not built here.
@@ -68,7 +68,7 @@ const GROUP_OF = (() => {
 })();
 
 /** Selectable ranges for the wizard. Phonics groups (default progression) + an "All letters" set.
- *  The "All letters" A-Z set is the alternate the calls for, mainly for the picture game. */
+ *  The "All letters" A-Z set is the alternate, mainly for the picture game. */
 export const RANGES = [
   ...PHONICS_GROUPS.map((g) => ({ id: g.key, key: g.key, label: g.label, letters: g.letters })),
   { id: 'all', key: 'all', label: 'All letters · A–Z', letters: ALPHABET.slice() },
