@@ -1,5 +1,5 @@
 // sw.js — offline cache of the LOCAL app shell + the shared engine. No remote fetches, no tracking.
-const CACHE = 'dl-kids-letters-v4';
+const CACHE = 'dl-kids-letters-v5';
 // Bundled letter-NAME voice clips (offline, played as static files — primary voice path).
 const LETTER_CLIPS = 'abcdefghijklmnopqrstuvwxyz'.split('').map((l) => `../shared/clips/letter-${l}.mp3`);
 // Original celebratory cheer clips (offline; ride alongside the synthesized chime).
@@ -15,7 +15,10 @@ const ASSETS = [
 ];
 
 self.addEventListener('install', (e) => {
-  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(ASSETS)).then(() => self.skipWaiting()));
+  // Resilient install: add each asset individually + tolerate failures so ONE bad fetch (e.g. an
+  // mp3) can't block the whole update and strand the user on an old cache. Misses still work online
+  // via the fetch fallback below.
+  e.waitUntil(caches.open(CACHE).then((c) => Promise.allSettled(ASSETS.map((a) => c.add(a)))).then(() => self.skipWaiting()));
 });
 self.addEventListener('activate', (e) => {
   e.waitUntil(caches.keys().then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k)))).then(() => self.clients.claim()));

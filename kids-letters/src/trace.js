@@ -13,87 +13,99 @@
 // finish) — each stroke's final checkpoint uses a tighter tolerance (must reach the true end).
 //
 // WRITING BANDS (y grows downward, 100×140 box):
-//   ascender top ~22 · x-height top ~56 · baseline ~118 · descender bottom ~134.
-// x-height letters (a c e m n o r s u v w x z) sit y56..118; ascenders (b d f h k l t) reach ~22;
-// descenders (g j p q y) drop to ~134. Strokes are listed in standard ball-and-stick manuscript
+//   ascender top ~16 · x-height top ~48 · baseline ~110 · descender bottom ~124.
+// x-height letters (a c e m n o r s u v w x z) sit y48..110; ascenders (b d f h k l t) reach ~16;
+// descenders (g j p q y) drop to ~124. Strokes are listed in standard ball-and-stick manuscript
 // writing order so the numbered start markers + arrows teach correct letter formation.
+//
+// CLIP SAFETY (the descender-chop fix): the SVG clips at the 100×140 viewBox and the hollow track
+// channel is 28 units wide with ROUND CAPS — paint extends 14 units past every stroke end. So every
+// vertex must sit within [14..86]×[14..126] or the painted channel gets CHOPPED FLAT at the box edge.
+// The old band layout (22..134) pushed g/j/p/q/y descender bottoms to y=134 → channel painted to
+// y≈148, visibly cut off at 140 on the phone. The whole alphabet is translated up 8 units (pure
+// translation — identical letterform proportions), then the extreme vertices get a 2-unit margin
+// (tops 16, descender bottoms 124) so every round cap closes fully INSIDE the box, like Numbers
+// (whose glyphs sit y20..120 → caps end at 134, never clipped).
 
 /** Stroke polylines per LOWERCASE letter (trace v5). Each letter = array of strokes in WRITING
  *  ORDER; each stroke = ordered [x,y] vertices. Hand-authored for Digital Legends (clean-room;
  *  not traced from any font file). */
 export const LETTER_STROKES = {
   // a — (1) the circle, counter-clockwise from 2 o'clock; (2) the right-side line down.
-  a: [[[68, 64], [54, 56], [38, 58], [29, 72], [27, 90], [33, 106], [48, 117], [62, 113], [69, 102]],
-      [[70, 58], [70, 118]]],
+  a: [[[68, 56], [54, 48], [38, 50], [29, 64], [27, 82], [33, 98], [48, 109], [62, 105], [69, 94]],
+      [[70, 50], [70, 110]]],
   // b — (1) tall line down; (2) the circle out to the right (clockwise back to the stem).
-  b: [[[30, 22], [30, 118]],
-      [[30, 64], [44, 56], [60, 58], [70, 70], [72, 87], [68, 104], [55, 116], [41, 115], [30, 107]]],
+  b: [[[30, 16], [30, 110]],
+      [[30, 56], [44, 48], [60, 50], [70, 62], [72, 79], [68, 96], [55, 108], [41, 107], [30, 99]]],
   // c — one open circle, counter-clockwise from 2 o'clock.
-  c: [[[70, 68], [56, 56], [38, 58], [28, 74], [26, 90], [30, 106], [42, 117], [58, 117], [70, 106]]],
+  c: [[[70, 60], [56, 48], [38, 50], [28, 66], [26, 82], [30, 98], [42, 109], [58, 109], [70, 98]]],
   // d — (1) the circle, counter-clockwise; (2) the tall right-side line down.
-  d: [[[68, 64], [54, 56], [38, 58], [29, 72], [27, 90], [33, 106], [48, 117], [62, 113], [69, 102]],
-      [[70, 22], [70, 118]]],
+  d: [[[68, 56], [54, 48], [38, 50], [29, 64], [27, 82], [33, 98], [48, 109], [62, 105], [69, 94]],
+      [[70, 16], [70, 110]]],
   // e — ONE stroke: straight bar left→right, then up and around counter-clockwise like a c.
-  e: [[[28, 88], [70, 88], [70, 74], [60, 60], [46, 56], [33, 62], [26, 78], [26, 96], [33, 110], [46, 117], [60, 114], [69, 105]]],
+  e: [[[28, 80], [70, 80], [70, 66], [60, 52], [46, 48], [33, 54], [26, 70], [26, 88], [33, 102], [46, 109], [60, 106], [69, 97]]],
   // f — (1) hook from the top curving left, then straight down; (2) the crossbar left→right.
-  f: [[[66, 34], [58, 24], [46, 22], [38, 30], [36, 44], [36, 118]],
-      [[24, 60], [58, 60]]],
+  f: [[[66, 26], [58, 18], [46, 16], [38, 24], [36, 38], [36, 110]],
+      [[24, 52], [58, 52]]],
   // g — (1) the circle, counter-clockwise; (2) right line down into the descender, hook left.
-  g: [[[68, 64], [54, 56], [38, 58], [29, 72], [27, 90], [33, 106], [48, 116], [62, 112], [69, 100]],
-      [[70, 58], [70, 118], [68, 128], [56, 134], [42, 132], [32, 124]]],
+  g: [[[68, 56], [54, 48], [38, 50], [29, 64], [27, 82], [33, 98], [48, 108], [62, 104], [69, 92]],
+      [[70, 50], [70, 110], [68, 118], [56, 124], [42, 122], [32, 114]]],
   // h — (1) tall line down; (2) up over the arch and down the right leg.
-  h: [[[30, 22], [30, 118]],
-      [[30, 70], [38, 60], [52, 56], [64, 62], [68, 76], [68, 118]]],
-  // i — (1) short line down on the x-height band; (2) the dot above.
-  i: [[[50, 56], [50, 118]],
-      [[50, 38], [50, 42]]],
-  // j — (1) line down through the descender, hook left; (2) the dot above.
-  j: [[[58, 56], [58, 118], [56, 128], [46, 134], [34, 131], [28, 123]],
-      [[58, 38], [58, 42]]],
+  h: [[[30, 16], [30, 110]],
+      [[30, 62], [38, 52], [52, 48], [64, 54], [68, 68], [68, 110]]],
+  // i — (1) short line down on the x-height band; (2) the dot above, at ascender height so its
+  //     28-wide round channel visibly SEPARATES from the stem channel (lower dots merge into one
+  //     capsule blob at trace scale — the letter stopped reading as an i).
+  i: [[[50, 48], [50, 110]],
+      [[50, 16], [50, 20]]],
+  // j — (1) line down through the descender, hook left; (2) the dot above (ascender height, same
+  //     channel-separation rule as i).
+  j: [[[58, 48], [58, 110], [56, 118], [46, 124], [34, 121], [28, 113]],
+      [[58, 16], [58, 20]]],
   // k — (1) tall line down; (2) slant IN to the middle of the stem, then OUT to the corner.
-  k: [[[32, 22], [32, 118]],
-      [[66, 58], [34, 88], [68, 118]]],
+  k: [[[32, 16], [32, 110]],
+      [[66, 50], [34, 80], [68, 110]]],
   // l — one tall straight line down.
-  l: [[[50, 22], [50, 118]]],
+  l: [[[50, 16], [50, 110]]],
   // m — THREE strokes: (1) the line down; (2) first hump + leg; (3) second hump + leg.
-  m: [[[26, 56], [26, 118]],
-      [[26, 68], [33, 58], [44, 56], [50, 64], [52, 76], [52, 118]],
-      [[52, 68], [59, 58], [70, 56], [76, 64], [78, 76], [78, 118]]],
+  m: [[[26, 48], [26, 110]],
+      [[26, 60], [33, 50], [44, 48], [50, 56], [52, 68], [52, 110]],
+      [[52, 60], [59, 50], [70, 48], [76, 56], [78, 68], [78, 110]]],
   // n — (1) the line down; (2) up over the arch and down the right leg.
-  n: [[[32, 56], [32, 118]],
-      [[32, 70], [40, 60], [54, 56], [64, 62], [68, 76], [68, 118]]],
+  n: [[[32, 48], [32, 110]],
+      [[32, 62], [40, 52], [54, 48], [64, 54], [68, 68], [68, 110]]],
   // o — one closed circle, counter-clockwise from the top.
-  o: [[[50, 56], [35, 62], [27, 78], [27, 96], [35, 112], [50, 118], [65, 112], [73, 96], [73, 78], [65, 62], [50, 56]]],
+  o: [[[50, 48], [35, 54], [27, 70], [27, 88], [35, 104], [50, 110], [65, 104], [73, 88], [73, 70], [65, 54], [50, 48]]],
   // p — (1) line down into the descender; (2) the circle out to the right.
-  p: [[[30, 56], [30, 134]],
-      [[30, 64], [44, 56], [60, 58], [70, 70], [72, 87], [68, 104], [55, 116], [41, 115], [30, 107]]],
+  p: [[[30, 48], [30, 124]],
+      [[30, 56], [44, 48], [60, 50], [70, 62], [72, 79], [68, 96], [55, 108], [41, 107], [30, 99]]],
   // q — (1) the circle, counter-clockwise; (2) line down into the descender, small flick right.
-  q: [[[68, 64], [54, 56], [38, 58], [29, 72], [27, 90], [33, 106], [48, 116], [62, 112], [69, 100]],
-      [[70, 58], [70, 128], [74, 134], [80, 129]]],
+  q: [[[68, 56], [54, 48], [38, 50], [29, 64], [27, 82], [33, 98], [48, 108], [62, 104], [69, 92]],
+      [[70, 50], [70, 118], [74, 124], [80, 119]]],
   // r — (1) short line down; (2) up and over the little shoulder to the right.
-  r: [[[34, 56], [34, 118]],
-      [[34, 70], [42, 60], [54, 56], [66, 60], [70, 68]]],
+  r: [[[34, 48], [34, 110]],
+      [[34, 62], [42, 52], [54, 48], [66, 52], [70, 60]]],
   // s — one S-curve: counter-clockwise top curve, across the middle, clockwise bottom curve.
-  s: [[[68, 64], [56, 56], [42, 56], [32, 64], [34, 76], [46, 84], [58, 90], [68, 100], [66, 112], [54, 118], [40, 118], [28, 110]]],
+  s: [[[68, 56], [56, 48], [42, 48], [32, 56], [34, 68], [46, 76], [58, 82], [68, 92], [66, 104], [54, 110], [40, 110], [28, 102]]],
   // t — (1) tall line down with a small curve at the foot; (2) the crossbar left→right.
-  t: [[[48, 30], [48, 106], [53, 115], [66, 114]],
-      [[30, 56], [68, 56]]],
+  t: [[[48, 22], [48, 98], [53, 107], [66, 106]],
+      [[30, 48], [68, 48]]],
   // u — (1) down, round the bottom, up the right side; (2) the right line down.
-  u: [[[30, 56], [30, 98], [36, 112], [50, 118], [62, 112], [68, 100]],
-      [[68, 56], [68, 118]]],
+  u: [[[30, 48], [30, 90], [36, 104], [50, 110], [62, 104], [68, 92]],
+      [[68, 48], [68, 110]]],
   // v — one stroke: slant down to the point, slant back up.
-  v: [[[28, 56], [50, 118], [72, 56]]],
+  v: [[[28, 48], [50, 110], [72, 48]]],
   // w — one stroke: down, up, down, up (two valleys).
-  w: [[[24, 56], [37, 118], [50, 72], [63, 118], [76, 56]]],
+  w: [[[24, 48], [37, 110], [50, 64], [63, 110], [76, 48]]],
   // x — TWO strokes: (1) slant down left→right; (2) slant down right→left, crossing the middle.
-  x: [[[28, 56], [72, 118]],
-      [[72, 56], [28, 118]]],
+  x: [[[28, 48], [72, 110]],
+      [[72, 48], [28, 110]]],
   // y — (1) short slant down to the middle; (2) long slant from the top-right down through the
   //     middle into the descender.
-  y: [[[30, 56], [50, 92]],
-      [[70, 56], [50, 92], [34, 130]]],
+  y: [[[30, 48], [50, 84]],
+      [[70, 48], [50, 84], [34, 122]]],
   // z — one stroke: across the top, slant down-left, across the bottom.
-  z: [[[28, 56], [72, 56], [28, 118], [72, 118]]],
+  z: [[[28, 48], [72, 48], [28, 110], [72, 110]]],
 };
 
 export const TRACE_BOX = { w: 100, h: 140 };

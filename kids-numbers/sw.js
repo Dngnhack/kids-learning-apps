@@ -1,5 +1,5 @@
 // sw.js — offline cache of the LOCAL app shell + the shared engine. No remote fetches, no tracking.
-const CACHE = 'dl-kids-numbers-v12';
+const CACHE = 'dl-kids-numbers-v13';
 // Bundled number building-block voice clips (offline, played as static files — primary voice path).
 const NUMBER_CLIPS = [
   'zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine',
@@ -19,7 +19,10 @@ const ASSETS = [
 ];
 
 self.addEventListener('install', (e) => {
-  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(ASSETS)).then(() => self.skipWaiting()));
+  // Resilient install: add each asset individually + tolerate failures so ONE bad fetch (e.g. an
+  // mp3) can't block the whole update and strand the user on an old cache. Misses still work online
+  // via the fetch fallback below.
+  e.waitUntil(caches.open(CACHE).then((c) => Promise.allSettled(ASSETS.map((a) => c.add(a)))).then(() => self.skipWaiting()));
 });
 self.addEventListener('activate', (e) => {
   e.waitUntil(caches.keys().then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k)))).then(() => self.clients.claim()));

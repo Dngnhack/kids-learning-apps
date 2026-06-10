@@ -58,6 +58,11 @@ export function numberToClips(value) {
 /**
  * Speak a number via bundled clips (PRIMARY). Falls back to runtime speechSynthesis (audio.js)
  * only if clips are unsupported, the value is out of range, or a clip fails to play (LAST RESORT).
+ *
+ * GAPLESS (Fix 1): the parts are PRELOADED and played back-to-back by playSequence — gapMs defaults
+ * to 0 so a multi-part number ("thirty-one", "two hundred fifty") is ONE smooth utterance, not
+ * "thirty……one". A new prompt still cancels the whole in-flight sequence (latest wins) via the clip
+ * player's generation guard. Callers may pass gapMs to add breathing room, but 0 is the default.
  * @param {number} value
  * @param {{gapMs?:number}} [opts]
  * @returns {Promise<void>}
@@ -65,6 +70,6 @@ export function numberToClips(value) {
 export async function speakNumber(value, opts = {}) {
   const names = numberToClips(value);
   if (names.length === 0 || !clipsSupported()) { speak(String(value)); return; }
-  const ok = await playSequence(names, { gapMs: typeof opts.gapMs === 'number' ? opts.gapMs : 120 });
+  const ok = await playSequence(names, { gapMs: typeof opts.gapMs === 'number' ? opts.gapMs : 0 });
   if (!ok) speak(String(value));   // a clip failed to load/play → last-resort TTS
 }

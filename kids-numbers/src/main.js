@@ -9,7 +9,7 @@ import * as rewards from '../../shared/rewards.js';
 import { makeStorage } from '../../shared/storage.js';
 import { showParentGate } from '../../shared/parentGate.js';
 import { buildQuestion, isCorrect } from './game.js';
-import { DECK_META, idsForRange, sampleIds, getCard, COUNT_CAP, ENUM_CAP } from './decks/numbers.js';
+import { DECK_META, idsForRange, sampleIds, getCard, COUNT_CAP, ENUM_CAP, TRACE_CAP } from './decks/numbers.js';
 import { traceDigits } from './trace.js';
 import * as ui from './ui.js';
 
@@ -38,15 +38,16 @@ function concreteMode(value) {
   if (settings.mode !== 'mixed') return settings.mode;
   const opts = ['hear', 'matchAudio'];
   if (value <= COUNT_CAP) opts.push('count');
-  opts.push('trace'); // trace any value now — multi-digit numbers trace one box per digit (trace.js)
+  if (value <= TRACE_CAP) opts.push('trace'); // TRACE is single-digit only (0..9); multi-digit never traces
   return opts[Math.floor(Math.random() * opts.length)];
 }
 
 function activeIds() {
   const max = rangeMax();
-  // Trace now supports multi-digit numbers (one box per digit), so it spans the full enumerable
-  // range like recognition does — sampled above ENUM_CAP so we never enumerate 1000 SRS items.
-  if (settings.mode === 'trace') return max <= ENUM_CAP ? idsForRange(max) : sampleIds(max, BIG_SAMPLE);
+  // TRACE is single-digit ONLY (0..9): clamp to TRACE_CAP so a trace session can never produce a
+  // multi-digit value (a "10" range pick yields 0..9, never 10). Multi-digit numbers still appear in
+  // count/hear/match/math — just not in trace (Randy directive).
+  if (settings.mode === 'trace') return idsForRange(Math.min(max, TRACE_CAP));
   if (settings.mode === 'count') return idsForRange(Math.min(max, COUNT_CAP));
   // recognition OR mixed: span the full range (sampled if big); per-question mode excludes count/trace by value
   if (max <= ENUM_CAP) return idsForRange(max);

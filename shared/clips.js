@@ -72,9 +72,15 @@ export function playClip(name, opts = {}) {
 }
 
 /**
- * Play a SEQUENCE of clips in order with a small gap, no overlap. A later play/stop supersedes the
- * whole sequence (latest wins). If a clip in the sequence errors, opts.onError(name) fires and the
- * sequence stops (the caller's fallback decides what to do).
+ * Play a SEQUENCE of clips in order with no overlap, as ONE smooth utterance. A later play/stop
+ * supersedes the whole sequence (latest wins). If a clip in the sequence errors, opts.onError(name)
+ * fires and the sequence stops (the caller's fallback decides what to do).
+ *
+ * GAPLESS (Fix 1 — see MI-013): every part's Audio element is CONSTRUCTED + `.load()`ed UP FRONT,
+ * before the first part plays, so there is no per-part load latency mid-utterance. Parts are then
+ * chained strictly on `ended` (no setTimeout between them by default), so a multi-part number like
+ * "thirty-one" plays back-to-back as one phrase instead of "thirty……one". gapMs defaults to 0
+ * (contiguous); a caller may pass a small gap if it ever wants breathing room.
  * @param {string[]} names ordered clip names, e.g. ['twenty','three']
  * @param {{gapMs?:number, onError?:Function}} [opts]
  * @returns {Promise<boolean>} true when the whole sequence played (or was cleanly superseded)
@@ -83,23 +89,35 @@ export function playSequence(names, opts = {}) {
   if (!isEnabled() || !clipsSupported()) return Promise.resolve(false);
   const list = Array.isArray(names) ? names.filter(Boolean) : [];
   if (list.length === 0) return Promise.resolve(true);
-  const gap = typeof opts.gapMs === 'number' ? opts.gapMs : 120;
+  const gap = typeof opts.gapMs === 'number' ? opts.gapMs : 0;   // 0 = contiguous, one smooth utterance
   stopClips();                               // own the timeline: bump _gen once for the whole run
   const seqGen = _gen;
   try { unlockAudio(); } catch (_e) { /* ignore */ }
+
+  // PRELOAD: build + kick a load() for EVERY part now, so by the time part N's turn comes its audio
+  // is already buffered (no mid-utterance load latency — the cause of the "thirty……one" gap).
+  const preloaded = list.map((name) => {
+    const el = new Audio(clipUrl(name));
+    try { el.preload = 'auto'; } catch (_e) { /* some envs lack the setter */ }
+    try { if (typeof el.load === 'function') el.load(); } catch (_e) { /* ignore */ }
+    return el;
+  });
 
   return new Promise((resolve) => {
     let i = 0;
     const step = () => {
       if (seqGen !== _gen) return resolve(true);   // superseded by a newer play/stop — done quietly
       if (i >= list.length) return resolve(true);
-      const name = list[i++];
-      // play this one WITHOUT bumping _gen again (we own seqGen for the whole sequence)
-      _playOneInSequence(name, seqGen).then((ok) => {
+      const name = list[i];
+      const el = preloaded[i];
+      i++;
+      // play this preloaded element WITHOUT bumping _gen again (we own seqGen for the whole sequence)
+      _playOneInSequence(el, seqGen).then((ok) => {
         if (seqGen !== _gen) return resolve(true);  // a transition happened mid-clip
         if (!ok) { if (typeof opts.onError === 'function') { try { opts.onError(name); } catch (_e) { /* ignore */ } } return resolve(false); }
         if (i >= list.length) return resolve(true);
-        setTimeout(step, gap);
+        // chain on `ended` → next part fires immediately (gap 0) so the number is one phrase.
+        if (gap > 0) setTimeout(step, gap); else step();
       });
     };
     step();
@@ -142,8 +160,10 @@ export async function speakLetterName(letter) {
   if (!ok) speak(String(letter).toUpperCase());   // clip missing/failed → last-resort TTS
 }
 
-/** Internal: play one clip as part of a sequence, honoring the sequence's generation token. */
-function _playOneInSequence(name, seqGen) {
+/** Internal: play one ALREADY-PRELOADED clip element as part of a sequence, honoring the sequence's
+ *  generation token. The element was constructed + load()ed up front by playSequence (gapless), so
+ *  here we only wire its handlers and play() it — no construction/load latency at this point. */
+function _playOneInSequence(el, seqGen) {
   return new Promise((resolve) => {
     if (seqGen !== _gen) return resolve(false);
     let done = false;
@@ -153,7 +173,6 @@ function _playOneInSequence(name, seqGen) {
       if (seqGen === _gen && _cur === el) _cur = null;
       resolve(ok);
     };
-    const el = new Audio(clipUrl(name));
     _cur = el;
     el.onended = () => finish(true);
     el.onerror = () => finish(false);
