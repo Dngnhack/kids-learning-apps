@@ -11,6 +11,9 @@ export function isEnabled() { return enabled; }
 
 function ctx() {
   if (!ac) { try { ac = new (window.AudioContext || window.webkitAudioContext)(); } catch (_e) { ac = null; } }
+  // The context is often created/left SUSPENDED until a user gesture (autoplay policy). Opportunistically
+  // resume on every access so reward tones aren't silently dropped once a gesture has occurred.
+  if (ac && ac.state === 'suspended') { try { ac.resume(); } catch (_e) { /* ignore */ } }
   return ac;
 }
 
@@ -34,33 +37,44 @@ if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
 }
 
 // ── Speech serialization (fixes overlap/cutoff during transitions) ──────────────
-// A single-utterance queue: each clip finishes (onend) before the next starts, so
-// prompts never overlap. A new prompt by default INTERRUPTS cleanly (stops current +
-// clears the queue, then speaks) — no two voices at once. Pass opts.queue=true to
-// chain after the current clip instead of interrupting. The deferred speak() after
-// cancel() also dodges the Chrome cancel→speak race (where the old clip keeps playing).
+// A single-utterance queue: each clip finishes (onend) before the next starts, so prompts
+// never overlap. A new prompt by default INTERRUPTS cleanly (cancel current, clear queue,
+// then speak the latest) — no two voices at once. Pass opts.queue=true to chain instead.
+//
+// REGRESSION FIX: the v4 ordering bumped a generation token in stopSpeech() and then re-checked
+// it inside a deferred speak(). The token was captured in _drain() AFTER the bump, which by itself
+// is fine — but the deferred speak raced the still-settling async speechSynthesis.cancel() and the
+// 40ms timer dropped the LONE/most-recent clip (silence instead of the intended no-overlap). The fix:
+//   • capture the generation token at SCHEDULE time so a clip is NEVER invalidated by ITS OWN cancel,
+//     only by a *later* stopSpeech()/interrupt (latest wins; the lone clip always plays);
+//   • cancel → settle → speak ordering with a reliable settle, and re-check the token only against a
+//     SUBSEQUENT interrupt. This keeps no-overlap on rapid transitions without swallowing the latest.
 let _q = [];
 let _speaking = false;
-let _gen = 0; // bumped by every stopSpeech()/interrupt so a DEFERRED speak from a prior clip is dropped
+let _gen = 0;            // bumped by every stopSpeech()/interrupt
+let _scheduledGen = -1;  // the _gen value owned by the currently scheduled/in-flight deferred speak
+const SETTLE_MS = 60;    // let a prior cancel() settle (Chrome quirk) before the real speak()
 function _drain() {
   if (_speaking || !_q.length || !('speechSynthesis' in window)) return;
   const u = _q.shift();
   _speaking = true;
+  // Own the CURRENT generation. A later stopSpeech()/speak() bumps _gen past this and supersedes us;
+  // nothing that happened BEFORE scheduling (incl. the cancel that cleared the way for this clip) can
+  // invalidate it — so the lone / most-recent utterance is never dropped.
   const myGen = _gen;
-  const done = () => { if (myGen !== _gen) return; _speaking = false; _drain(); };
+  _scheduledGen = myGen;
+  const done = () => { if (myGen !== _gen) return; _speaking = false; _scheduledGen = -1; _drain(); };
   u.onend = done; u.onerror = done;
-  // small defer lets a prior cancel() settle (Chrome quirk) so this clip actually plays. If a
-  // stopSpeech()/interrupt happened in that window, _gen moved on → we drop this stale utterance
-  // (prevents a cancelled clip from still speaking → no overlap on rapid transitions).
   setTimeout(() => {
-    if (myGen !== _gen) return;                 // superseded — don't speak the stale clip
+    if (myGen !== _gen) return;                 // a NEWER interrupt happened → drop this now-stale clip
     try { window.speechSynthesis.speak(u); } catch (_e) { done(); }
-  }, 40);
+  }, SETTLE_MS);
 }
 
 /** Stop any current/queued speech immediately (call on transitions to prevent overlap). */
 export function stopSpeech() {
-  _gen++;                                        // invalidate any in-flight deferred speak()
+  _gen++;                                        // invalidate any in-flight/scheduled deferred speak()
+  _scheduledGen = -1;
   _q = [];
   try { window.speechSynthesis.cancel(); } catch (_e) { /* ignore */ }
   _speaking = false;
@@ -74,17 +88,51 @@ export function stopSpeech() {
 export function speak(text, opts = {}) {
   if (!enabled) return;
   try {
-    if (!('speechSynthesis' in window)) return;
-    if (!preferredVoice) pickVoice();
-    if (opts.queue !== true) stopSpeech();   // clean interrupt: no two clips at once
+    // Graceful fallback: if TTS is entirely unavailable (some mobile browsers), bail quietly — reward
+    // tones (tone/cheer/fireworks) live on a separate WebAudio path and still play without any voice.
+    if (typeof window === 'undefined' || !('speechSynthesis' in window) || typeof SpeechSynthesisUtterance === 'undefined') return;
+    if (!preferredVoice) pickVoice();            // voices load async; re-attempt the pick each time
+    if (opts.queue !== true) stopSpeech();       // clean interrupt: no two clips at once
     const u = new SpeechSynthesisUtterance(String(text));
     u.rate = typeof opts.rate === 'number' ? opts.rate : 0.78;   // slower = clearer, gentler
     u.pitch = typeof opts.pitch === 'number' ? opts.pitch : 1.15; // warm, child-friendly
     u.volume = 1; u.lang = 'en-US';
-    if (preferredVoice) u.voice = preferredVoice;
+    if (preferredVoice) u.voice = preferredVoice; // else: let the engine use its default voice (no drop)
     _q.push(u);
     _drain();
   } catch (_e) { /* ignore */ }
+}
+
+// ── First-gesture audio unlock (self-installing, idempotent) ────────────────────
+// AudioContext starts SUSPENDED and speechSynthesis needs a user gesture to unlock (autoplay policy);
+// without this, BOTH tones and voice are silent on mobile / GitHub Pages until something unlocks them.
+// We self-install one-time guarded listeners here so NO other file (main.js, etc.) needs editing.
+let _unlocked = false;
+function _unlockAudio() {
+  if (_unlocked) return;
+  _unlocked = true;
+  try {                                          // resume the WebAudio context (creates it if needed)
+    const a = ctx();
+    if (a && a.state === 'suspended') a.resume();
+  } catch (_e) { /* ignore */ }
+  try {                                          // prime speechSynthesis with a near-silent short clip
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window && typeof SpeechSynthesisUtterance !== 'undefined') {
+      const warm = new SpeechSynthesisUtterance(' ');
+      warm.volume = 0; warm.rate = 2;
+      window.speechSynthesis.speak(warm);
+      pickVoice();                               // a gesture often coincides with voices being ready
+    }
+  } catch (_e) { /* ignore */ }
+}
+/** Manually unlock audio (resume AudioContext + prime TTS). Idempotent. Also exposed for tests. */
+export function unlockAudio() { _unlockAudio(); }
+if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+  const events = ['pointerdown', 'touchstart', 'mousedown', 'click', 'keydown'];
+  const onFirstGesture = () => {
+    _unlockAudio();
+    for (const ev of events) { try { window.removeEventListener(ev, onFirstGesture, true); } catch (_e) { /* ignore */ } }
+  };
+  for (const ev of events) { try { window.addEventListener(ev, onFirstGesture, true); } catch (_e) { /* ignore */ } }
 }
 
 function note(a, freq, start, dur, gain = 0.18) {

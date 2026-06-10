@@ -1,10 +1,19 @@
 // sw.js — offline cache of the LOCAL app shell + the shared engine. No remote fetches, no tracking.
-const CACHE = 'dl-kids-numbers-v10';
+const CACHE = 'dl-kids-numbers-v11';
+// Bundled number building-block voice clips (offline, played as static files — primary voice path).
+const NUMBER_CLIPS = [
+  'zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine',
+  'ten', 'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen', 'seventeen',
+  'eighteen', 'nineteen', 'twenty', 'thirty', 'forty', 'fifty', 'sixty', 'seventy',
+  'eighty', 'ninety', 'hundred', 'thousand',
+].map((n) => `../shared/clips/${n}.mp3`);
 const ASSETS = [
   './', './index.html', './manifest.webmanifest', './assets/icon.svg',
   './src/main.js', './src/game.js', './src/ui.js', './src/trace.js', './src/decks/numbers.js',
   '../shared/base.css', '../shared/srs.js', '../shared/audio.js', '../shared/storage.js',
   '../shared/parentGate.js', '../shared/ui-core.js', '../shared/rewards.js',
+  '../shared/clips.js', '../shared/number-speech.js',
+  ...NUMBER_CLIPS,
 ];
 
 self.addEventListener('install', (e) => {

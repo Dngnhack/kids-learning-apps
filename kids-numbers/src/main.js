@@ -3,6 +3,8 @@
 
 import * as srs from '../../shared/srs.js';
 import * as audio from '../../shared/audio.js';
+import { speakNumber } from '../../shared/number-speech.js';
+import { stopClips } from '../../shared/clips.js';
 import * as rewards from '../../shared/rewards.js';
 import { makeStorage } from '../../shared/storage.js';
 import { showParentGate } from '../../shared/parentGate.js';
@@ -77,7 +79,7 @@ function startSession(choice) {
 }
 
 /** Abandon the current lesson: stop any speech and return to the home screen (Fix 7 — Quit). */
-function quitToHome() { audio.stopSpeech(); home(); }
+function quitToHome() { stopClips(); audio.stopSpeech(); home(); }
 /** Add the shared in-lesson Home/Quit control to whatever play/trace screen is mounted. */
 function addQuit() { ui.mountQuit(mount.querySelector('.screen'), quitToHome); }
 
@@ -91,22 +93,22 @@ function nextQuestion() {
   if (mode === 'trace') {
     ui.renderTrace(mount, value, traceDigits(value), `${pos + 1} / ${session.length}`, { onComplete: () => onTraceDone(id) });
     addQuit();
-    audio.speak('Trace the ' + value);
+    speakNumber(value);                                // bundled clip (primary) — says the target number
     return;
   }
   const qMax = mode === 'count' ? Math.min(rangeMax(), COUNT_CAP) : rangeMax();
   const q = buildQuestion(id, { mode, max: qMax });
   const ctrl = ui.renderQuestion(mount, q, `${pos + 1} / ${session.length}`, {
     onSubmit: (picked) => handleAnswer(q, picked, ctrl),
-    onHear: (n) => audio.speak(String(n)),
+    onHear: (n) => speakNumber(Number(n)),             // bundled clip (primary)
   });
   addQuit();
-  if (q.mode === 'hear') audio.speak(String(q.value));
-  else if (q.mode === 'count') audio.speak('How many?');
+  if (q.mode === 'hear') speakNumber(Number(q.value));
+  else if (q.mode === 'count') audio.speak('How many?'); // short phrase — no clip; TTS fallback
 }
 
 function handleAnswer(q, picked, ctrl) {
-  if (q.mode !== 'matchAudio') audio.speak(String(picked)); // say the chosen number
+  if (q.mode !== 'matchAudio') speakNumber(Number(picked)); // say the chosen number (bundled clip)
   if (isCorrect(q, picked)) {
     if (!missed) { srs.recordAnswer(progress, q.id, true, { responseMs: now() - startTime }); stats.correct += 1; }
     store.save(progress);
