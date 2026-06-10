@@ -9,12 +9,29 @@ import * as core from '../../shared/ui-core.js';
 export const renderDone = core.renderDone;
 export const renderParent = core.renderParent;
 export const renderRewards = core.renderRewards;
+export const renderAlbum = core.renderAlbum;
 export const gateMount = core.gateMount;
 export const celebrate = core.celebrate;
 export const mountQuit = core.mountQuit;
 
-export function renderHome(mount, state, handlers) {
-  core.renderHome(mount, { title: 'Add & Subtract', mascot: '➕', state, ranges: LEVELS, modes: MODES, pickLabel: 'Pick a level', lessonChoices: state.lessonChoices, lessonLength: state.lessonLength }, handlers);
+export const LESSON_COUNTS = [5, 10, 15, 20];
+
+/**
+ * CONTEXT-AWARE options for the wizard (KWS-001 / AC2). The "range" here is the difficulty LEVEL
+ * (operation × digit-count). The Count activity renders physical object groups, so it only makes
+ * sense at the 1-digit levels (operands ≤ 9 are countable); offering Add/Take-away 2- or 3-digit for
+ * Count would show un-renderable groups. Solve / Listen / Mixed work at every level.
+ */
+export function optionsFor(activity) {
+  let ranges = LEVELS;
+  if (activity === 'objects') ranges = LEVELS.filter((l) => l.digits === 1); // a1 + s1 only (countable)
+  return { ranges: ranges.map((l) => ({ key: l.key, label: l.label })), counts: LESSON_COUNTS };
+}
+
+export function renderWizard(mount, defaults, handlers) {
+  core.renderWizard(mount, {
+    title: 'Add & Subtract', mascot: '➕', activities: MODES, optionsFor, pickLabel: 'Pick a level', defaults,
+  }, handlers);
 }
 
 const EMOJI = '🍎';

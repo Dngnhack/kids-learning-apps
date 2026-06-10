@@ -125,6 +125,135 @@ function showQuitConfirm(screen, onQuit) {
   keep.focus();
 }
 
+/**
+ * SHARED step-by-step selection WIZARD (KWS-001 / AC1+AC2) — replaces the all-at-once start menu.
+ * Three sequential screens: ACTIVITY (game/mode) → RANGE → # QUESTIONS. Each screen fades/slides OUT
+ * on a pick and the next slides IN; a Back button steps to the previous screen; after screen 3 the
+ * lesson starts via onStart(choice). Reduced-motion is respected (the CSS disables the transforms).
+ *
+ * CONTEXT-AWARE (AC2): the Range + #Questions options shown are produced by the app's optionsFor(activityId)
+ * callback → { ranges:[{key,label}], counts:[Number] } so only options valid for the chosen activity appear.
+ *
+ * My Stars / Grown-ups stay reachable from a small header on every wizard screen (AC1 keeps them).
+ *
+ * @param {HTMLElement} mount
+ * @param {{ title, mascot, activities:Array<{id,label,emoji,desc}>, optionsFor:(id)=>{ranges,counts},
+ *           pickLabel?, defaults?:{activity,rangeKey,count} }} cfg
+ * @param {{ onStart:(c:{activity,rangeKey,count})=>void, onParent:()=>void, onRewards:()=>void }} handlers
+ */
+export function renderWizard(mount, cfg, handlers) {
+  const { title, mascot, activities, optionsFor, pickLabel = 'How high?', defaults = {} } = cfg;
+  const { onStart, onParent, onRewards } = handlers;
+  mount.innerHTML = '';
+  const root = el('div', { class: 'wizard' });
+  mount.append(root);
+
+  // running choice — seeded from saved defaults so the picker shows the last-used as "on"
+  const choice = { activity: defaults.activity || (activities[0] && activities[0].id), rangeKey: defaults.rangeKey, count: defaults.count };
+  let step = 0;                 // 0 = activity, 1 = range, 2 = count
+  let cur = null;               // the currently-mounted .screen (for OUT transition)
+
+  // small persistent header: title + My Stars + Grown-ups (AC1 — entry points stay reachable)
+  function header(showBack) {
+    const h = el('div', { class: 'wiz-head' });
+    const left = el('div', { class: 'wiz-head-left' });
+    if (showBack) { const b = el('button', { class: 'btn btn-ghost wiz-back', 'aria-label': 'Go back a step' }, '‹  Back'); b.addEventListener('click', () => go(step - 1)); left.append(b); }
+    const right = el('div', { class: 'wiz-head-right' });
+    const stars = el('button', { class: 'btn btn-ghost wiz-mini', 'aria-label': 'My stars and stickers' }, '🏆');
+    stars.addEventListener('click', onRewards);
+    const parent = el('button', { class: 'btn btn-ghost wiz-mini', 'aria-label': 'For grown-ups' }, '⚙');
+    parent.addEventListener('click', onParent);
+    right.append(stars, parent);
+    h.append(left, right);
+    return h;
+  }
+
+  // step dots (1·2·3) so a parent can see where they are
+  function dots() {
+    const d = el('div', { class: 'wiz-dots', 'aria-hidden': 'true' });
+    for (let i = 0; i < 3; i++) d.append(el('span', { class: 'wiz-dot' + (i === step ? ' on' : (i < step ? ' done' : '')) }));
+    return d;
+  }
+
+  /** Transition: slide the current screen OUT (dir −1 back / +1 forward), then mount the next IN.
+   *  Robust to RAPID taps: any leftover/transitioning screens are swept first so we never accumulate
+   *  orphans (only `cur` ever survives between steps; the immediate `old` animates out then removes). */
+  function go(next) {
+    if (next < 0) return;
+    if (next > 2) return onStart({ activity: choice.activity, rangeKey: choice.rangeKey, count: choice.count });
+    const dir = next > step ? 1 : -1;
+    const old = cur;
+    // sweep any stale screens left mid-transition by a faster-than-animation tap (keep only `old`)
+    root.querySelectorAll('.wiz-screen').forEach((s) => { if (s !== old) s.remove(); });
+    step = next;
+    const fresh = build();
+    fresh.classList.add(dir > 0 ? 'wiz-in-next' : 'wiz-in-prev');
+    root.append(fresh);
+    cur = fresh;
+    // next frame → run the IN transition; OUT the old one
+    requestAnimationFrame(() => {
+      fresh.classList.remove('wiz-in-next', 'wiz-in-prev');
+      if (old) { old.classList.add(dir > 0 ? 'wiz-out-prev' : 'wiz-out-next'); setTimeout(() => { if (old !== cur) old.remove(); }, 360); }
+    });
+  }
+
+  /** Build the .screen for the current `step`. */
+  function build() {
+    const wrap = el('div', { class: 'screen wiz-screen' });
+    wrap.append(header(step > 0));
+    wrap.append(dots());
+
+    if (step === 0) {
+      wrap.append(el('div', { class: 'mascot bob', 'aria-hidden': 'true' }, mascot), el('h1', { class: 'title sm' }, title));
+      wrap.append(el('div', { class: 'pick-label' }, 'Pick a game'));
+      const grid = el('div', { class: 'mode-grid' });
+      activities.forEach((m, i) => {
+        const b = el('button', { class: 'mode-tile m' + (i % 4) + (m.id === choice.activity ? ' on' : '') });
+        b.append(el('span', { class: 'mode-emoji', 'aria-hidden': 'true' }, m.emoji), el('span', { class: 'mode-name' }, m.label));
+        b.setAttribute('aria-label', m.label + ': ' + m.desc);
+        b.addEventListener('click', () => { choice.activity = m.id; reconcileOptions(); go(1); });
+        grid.append(b);
+      });
+      wrap.append(grid);
+    } else if (step === 1) {
+      const { ranges } = optionsFor(choice.activity);
+      wrap.append(el('h2', { class: 'title sm wiz-q' }, pickLabel));
+      const rwrap = el('div', { class: 'chips wiz-chips' });
+      for (const r of ranges) {
+        const b = el('button', { class: 'chip big-chip' + (r.key === choice.rangeKey ? ' on' : '') }, r.label);
+        b.addEventListener('click', () => { choice.rangeKey = r.key; go(2); });
+        rwrap.append(b);
+      }
+      wrap.append(rwrap);
+    } else {
+      const { counts } = optionsFor(choice.activity);
+      wrap.append(el('h2', { class: 'title sm wiz-q' }, 'How many questions?'));
+      const cwrap = el('div', { class: 'chips wiz-chips' });
+      for (const n of counts) {
+        const b = el('button', { class: 'chip big-chip' + (n === choice.count ? ' on' : '') }, String(n));
+        b.addEventListener('click', () => { choice.count = n; go(3); });
+        cwrap.append(b);
+      }
+      wrap.append(cwrap);
+      const start = el('button', { class: 'btn btn-big wiz-start', 'aria-label': 'Start the lesson' }, '▶  Start');
+      start.addEventListener('click', () => go(3));
+      wrap.append(start);
+    }
+    return wrap;
+  }
+
+  /** When the activity changes, ensure the carried rangeKey/count are still valid for it (AC2). */
+  function reconcileOptions() {
+    const { ranges, counts } = optionsFor(choice.activity);
+    if (!ranges.some((r) => r.key === choice.rangeKey)) choice.rangeKey = ranges[0] && ranges[0].key;
+    if (!counts.includes(choice.count)) choice.count = counts.includes(10) ? 10 : counts[0];
+  }
+
+  reconcileOptions();
+  cur = build();
+  root.append(cur);
+}
+
 /** Home: mascot + title + level chips + mode picker + lesson-length picker + start + rewards +
  *  grown-ups. The RANGE and LESSON-LENGTH pickers are surfaced right here (post-mode flow, Fix 4):
  *  after picking a game the child/parent can set how high the numbers go AND how many questions a
@@ -207,7 +336,7 @@ export function renderDone(mount, { onAgain, onHome, onRewards, lesson }) {
 }
 
 /** Rewards shelf (on-device profile): stars, sticker collection, badges, progress map. */
-export function renderRewards(mount, r, { onBack }) {
+export function renderRewards(mount, r, { onBack, onAlbum }) {
   mount.innerHTML = '';
   const wrap = el('div', { class: 'screen rewards' });
   wrap.append(el('div', { class: 'mascot', 'aria-hidden': 'true' }, '🦊'));
@@ -232,10 +361,77 @@ export function renderRewards(mount, r, { onBack }) {
   wrap.append(map);
 
   wrap.append(el('div', { class: 'sc-title' }, 'Sticker collection'));
+  const earned = r.stickers.filter((s) => s.got).length;
+  wrap.append(el('div', { class: 'hint' }, `${earned} of ${r.stickers.length} stickers earned`));
+  // a small PREVIEW row of the most-recently-earned stickers (the full book is its own screen)
   const grid = el('div', { class: 'sticker-grid' });
-  for (const s of r.stickers) grid.append(el('div', { class: 'sticker' + (s.got ? ' got' : '') }, s.got ? s.icon : '❔'));
+  const preview = r.stickers.slice(0, 18);
+  for (const s of preview) grid.append(el('div', { class: 'sticker' + (s.got ? ' got' : '') }, s.got ? s.icon : '❔'));
   wrap.append(grid);
   if (r.nextStickerAt != null) wrap.append(el('div', { class: 'hint' }, 'Finish a lesson to earn the next sticker!'));
+
+  // Sticker-book / album entry point (AC5) — only when the app wires onAlbum.
+  if (onAlbum) {
+    const album = el('button', { class: 'btn', 'aria-label': 'Open my sticker book' }, '📖  Sticker Book');
+    album.addEventListener('click', onAlbum);
+    wrap.append(album);
+  }
+
+  const back = el('button', { class: 'btn btn-ghost' }, '⌂  Back');
+  back.addEventListener('click', onBack);
+  wrap.append(back); mount.append(wrap);
+}
+
+/**
+ * SHARED STICKER ALBUM / photo-book screen (KWS-001 / AC5). A persistent collectible book: every
+ * sticker slot is shown — FILLED (earned, in colour) or EMPTY (a dashed "not yet" slot) — and fills
+ * over time as lessons are finished. Pageable when the collection is large (a fixed page size keeps
+ * a phone tidy). Reads the existing local rewards store via the passed model (zero new data, survives
+ * reload because the rewards record is high-water + persisted). Reachable from the rewards shelf.
+ * @param {HTMLElement} mount
+ * @param {{ stickers:Array<{icon,got}> }} r  the rewards model (same one renderRewards uses)
+ * @param {{ onBack:()=>void }} handlers
+ */
+const ALBUM_PAGE = 24;            // stickers per album page (4 cols × 6 rows on a phone)
+export function renderAlbum(mount, r, { onBack }) {
+  mount.innerHTML = '';
+  const wrap = el('div', { class: 'screen album' });
+  const stickers = r.stickers;
+  const earned = stickers.filter((s) => s.got).length;
+  const pages = Math.max(1, Math.ceil(stickers.length / ALBUM_PAGE));
+  // open on the page holding the next-to-earn sticker so progress feels front-and-centre
+  let page = Math.min(pages - 1, Math.floor(earned / ALBUM_PAGE));
+
+  wrap.append(el('div', { class: 'mascot', 'aria-hidden': 'true' }, '📖'));
+  wrap.append(el('h2', { class: 'title sm' }, 'My Sticker Book'));
+  wrap.append(el('div', { class: 'star-count album-count' }, `⭐ ${earned} / ${stickers.length} collected`));
+
+  const grid = el('div', { class: 'album-grid' });
+  wrap.append(grid);
+
+  const nav = el('div', { class: 'album-nav' });
+  const prev = el('button', { class: 'btn btn-ghost', 'aria-label': 'Previous page' }, '‹');
+  const label = el('div', { class: 'album-page-label' });
+  const next = el('button', { class: 'btn btn-ghost', 'aria-label': 'Next page' }, '›');
+  prev.addEventListener('click', () => { if (page > 0) { page--; draw(); } });
+  next.addEventListener('click', () => { if (page < pages - 1) { page++; draw(); } });
+  nav.append(prev, label, next);
+  if (pages > 1) wrap.append(nav);
+
+  function draw() {
+    grid.innerHTML = '';
+    const start = page * ALBUM_PAGE;
+    for (let i = start; i < Math.min(start + ALBUM_PAGE, stickers.length); i++) {
+      const s = stickers[i];
+      const slot = el('div', { class: 'album-slot' + (s.got ? ' got' : ' empty') });
+      slot.append(el('div', { class: 'album-sticker', 'aria-label': s.got ? 'collected sticker' : 'empty slot' }, s.got ? s.icon : '☆'));
+      slot.append(el('div', { class: 'album-num', 'aria-hidden': 'true' }, String(i + 1)));
+      grid.append(slot);
+    }
+    label.textContent = `Page ${page + 1} of ${pages}`;
+    prev.disabled = page === 0; next.disabled = page === pages - 1;
+  }
+  draw();
 
   const back = el('button', { class: 'btn' }, '⌂  Back');
   back.addEventListener('click', onBack);

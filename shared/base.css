@@ -114,17 +114,18 @@ body {
 .map-node { width: 52px; height: 52px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.6rem; background: #e2e8f0; border: 3px solid #cbd5e1; }
 .map-node.on { background: #fef3c7; border-color: var(--sun); }
 .map-link { width: 22px; height: 5px; background: #cbd5e1; } .map-link.on { background: var(--sun); }
-.sticker-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: .5rem; max-width: 360px; }
-.sticker { width: 48px; height: 48px; border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 1.8rem; background: #f1f5f9; border: 3px dashed #cbd5e1; color: #94a3b8; }
+/* Sticker shelf — BIGGER stickers (KWS-001/AC4): larger slots + emoji on the rewards preview row. */
+.sticker-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: .55rem; max-width: 420px; }
+.sticker { width: 60px; height: 60px; border-radius: 16px; display: flex; align-items: center; justify-content: center; font-size: 2.4rem; background: #f1f5f9; border: 3px dashed #cbd5e1; color: #94a3b8; }
 .sticker.got { background: #ecfdf5; border: 3px solid var(--green); animation: pop .3s ease both; }
 .streak-line { font-size: 1.1rem; font-weight: 800; color: var(--green); }
 .streak-badges { display: flex; gap: .5rem; flex-wrap: wrap; justify-content: center; }
 .sbadge { width: 52px; height: 52px; border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 1.4rem; background: #f1f5f9; border: 3px solid #cbd5e1; color: #94a3b8; }
 .sbadge.got { background: #eff6ff; border-color: var(--blue); }
 
-/* end-of-lesson reward moment */
-.lesson-sticker { display: flex; flex-direction: column; align-items: center; gap: .2rem; }
-.big-sticker { font-size: clamp(3.5rem, 18vw, 5.5rem); line-height: 1; animation: pop .35s ease both; }
+/* end-of-lesson reward moment — the earned sticker pops BIG (KWS-001/AC4). */
+.lesson-sticker { display: flex; flex-direction: column; align-items: center; gap: .25rem; }
+.big-sticker { font-size: clamp(5rem, 26vw, 8rem); line-height: 1; animation: pop .35s ease both; filter: drop-shadow(0 6px 10px rgba(15,23,42,.18)); }
 
 .parent, .gate, .rewards { gap: .85rem; max-width: 520px; }
 .parent-note { color: #475569; font-size: 1rem; line-height: 1.5; }
@@ -151,9 +152,52 @@ body {
 .quit-keep { background: linear-gradient(180deg, #34d399, var(--green)); box-shadow: 0 6px 0 #0f7a37; }
 .quit-yes { font-size: 1.1rem; }
 
+/* ── Step-by-step WIZARD (KWS-001/AC1) — Activity → Range → #Questions ──────────────
+   Each .wiz-screen is absolutely stacked in .wizard so one slides OUT while the next slides IN.
+   Transforms are disabled under prefers-reduced-motion (see the media query at the bottom). */
+.wizard { position: relative; flex: 1; display: flex; overflow: hidden; }
+.wiz-screen { position: absolute; inset: 0; transition: transform .34s ease, opacity .34s ease; will-change: transform, opacity; }
+.wiz-in-next { transform: translateX(40px); opacity: 0; }     /* enters from the right (forward) */
+.wiz-in-prev { transform: translateX(-40px); opacity: 0; }    /* enters from the left (back) */
+.wiz-out-prev { transform: translateX(-40px); opacity: 0; }   /* old leaves to the left (forward) */
+.wiz-out-next { transform: translateX(40px); opacity: 0; }    /* old leaves to the right (back) */
+.wiz-head { position: absolute; top: .8rem; left: .8rem; right: .8rem; display: flex; align-items: center; justify-content: space-between; gap: .5rem; z-index: 8; }
+.wiz-head-left, .wiz-head-right { display: flex; gap: .5rem; }
+.wiz-mini { min-height: 48px; min-width: 48px; padding: .5rem .7rem; font-size: 1.2rem; }
+.wiz-back { min-height: 48px; padding: .5rem 1rem; font-size: 1rem; }
+.wiz-dots { display: flex; gap: .5rem; margin-top: 3rem; }
+.wiz-dot { width: 12px; height: 12px; border-radius: 50%; background: #cbd5e1; }
+.wiz-dot.on { background: var(--blue); transform: scale(1.25); }
+.wiz-dot.done { background: var(--green); }
+.wiz-q { color: var(--blue-dark); margin: .2rem 0; }
+.wiz-chips { gap: .7rem; }
+.big-chip { font-size: 1.5rem; padding: .9rem 1.6rem; min-height: 64px; min-width: 84px; box-shadow: 0 5px 0 #cbd5e1; }
+.big-chip.on { background: var(--blue); color: var(--white); border-color: var(--blue); }
+.wiz-start { margin-top: .4rem; }
+
+/* ── Sticker ALBUM / book (KWS-001/AC5) ─────────────────────────────────────────────
+   Filled slots show the earned sticker in colour; empty slots are a dashed ☆ placeholder. */
+.album { gap: .7rem; max-width: 520px; }
+.album-count { font-size: 1.2rem; }
+.album-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: .6rem; max-width: 360px; width: 100%; }
+.album-slot { position: relative; aspect-ratio: 1; border-radius: 18px; display: flex; align-items: center; justify-content: center; background: #f1f5f9; border: 3px dashed #cbd5e1; }
+.album-slot.got { background: #ecfdf5; border: 3px solid var(--green); box-shadow: 0 4px 0 #bbf7d0; animation: pop .3s ease both; }
+.album-sticker { font-size: clamp(2.2rem, 11vw, 3rem); line-height: 1; }
+.album-slot.empty .album-sticker { color: #b6c2d4; }
+.album-num { position: absolute; bottom: 3px; right: 7px; font-size: .7rem; font-weight: 800; color: #94a3b8; }
+.album-nav { display: flex; align-items: center; gap: 1rem; }
+.album-page-label { font-weight: 800; color: var(--blue-dark); min-width: 7.5rem; }
+.album-nav .btn-ghost { min-width: 60px; font-size: 1.6rem; padding: .4rem 1rem; }
+.album-nav .btn-ghost:disabled { opacity: .4; cursor: default; }
+
 @keyframes pop { from { transform: scale(.6); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 @keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-8px)} 75%{transform:translateX(8px)} }
 @keyframes burstUp { from { transform: translateY(0) translateX(0) scale(.7); opacity: 1; } to { transform: translateY(calc(-1 * var(--rise, 40vh))) translateX(var(--dx, 0)) scale(1.5); opacity: 0; } }
 @keyframes bob { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-10px)} }
 @keyframes nudge { 0%,100%{transform:scale(1)} 50%{transform:scale(1.06)} }
-@media (prefers-reduced-motion: reduce) { *, ::before, ::after { animation: none !important; } }
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after { animation: none !important; }
+  /* wizard: drop the slide; screens snap in/out (still sequential, just no motion) */
+  .wiz-screen { transition: none !important; }
+  .wiz-in-next, .wiz-in-prev, .wiz-out-prev, .wiz-out-next { transform: none !important; opacity: 1; }
+}

@@ -51,18 +51,24 @@ function activeIds() {
   return sampleIds(max, BIG_SAMPLE);
 }
 
+/** Home is now the step-by-step WIZARD (KWS-001 / AC1): Activity → Range → #Questions, then start. */
 function home() {
-  ui.renderHome(mount, { rangeKey: settings.rangeKey, mode: settings.mode, lessonChoices: LESSON_CHOICES, lessonLength: sessionSize() }, {
+  ui.renderWizard(mount, { activity: settings.mode, rangeKey: settings.rangeKey, count: sessionSize() }, {
     onStart: startSession,
     onParent: openParentGate,
     onRewards: openRewards,
-    onPickRange: (r) => { settings.rangeKey = r.key; store.saveSettings(settings); home(); },
-    onPickMode: (mode) => { settings.mode = mode; store.saveSettings(settings); home(); },
-    onPickLength: (n) => { settings.lessonLength = n; store.saveSettings(settings); home(); },
   });
 }
 
-function startSession() {
+/** Begin a lesson with the wizard's choice (activity/range/count). Persists the picks so the wizard
+ *  re-opens pre-selected. The count fix (srs.pickSession) guarantees EXACTLY `count` problems. */
+function startSession(choice) {
+  if (choice) {
+    settings.mode = choice.activity;
+    settings.rangeKey = choice.rangeKey;
+    settings.lessonLength = choice.count;
+    store.saveSettings(settings);
+  }
   const ids = activeIds();
   srs.reconcile(progress, ids);
   session = srs.pickSession(progress, ids, sessionSize());
@@ -138,11 +144,12 @@ function finishSession() {
   const lesson = rewards.completeLesson(store);          // end-of-lesson sticker
   const day = rewards.recordDay(store);                  // positive-only day streak
   audio.fireworks(); audio.speak('Lesson complete! Great job!');
-  ui.renderDone(mount, { onAgain: startSession, onHome: home, onRewards: openRewards,
+  ui.renderDone(mount, { onAgain: () => startSession(), onHome: home, onRewards: openRewards,
     lesson: { sticker: lesson.sticker, newSticker: lesson.newSticker, streak: day.streak, streakBadge: day.newStreakBadge } });
 }
 
-function openRewards() { ui.renderRewards(mount, rewards.model(store), { onBack: home }); }
+function openRewards() { ui.renderRewards(mount, rewards.model(store), { onBack: home, onAlbum: openAlbum }); }
+function openAlbum() { ui.renderAlbum(mount, rewards.model(store), { onBack: openRewards }); }
 
 function openParentGate() {
   const g = ui.gateMount(mount);

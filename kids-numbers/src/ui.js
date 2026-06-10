@@ -2,7 +2,7 @@
 // submit answer panel, celebrations, rewards shelf, done, parent scorecard, gate) comes from the
 // SHARED ui-core (no duplication).
 
-import { RANGES } from './decks/numbers.js';
+import { RANGES, COUNT_CAP } from './decks/numbers.js';
 import { MODES } from './game.js';
 import { DIGIT_STROKES, TRACE_BOX, denseStrokes, checkpoints, strokeStarts, advance, isComplete, nearestOnPath } from './trace.js';
 import * as core from '../../shared/ui-core.js';
@@ -10,12 +10,32 @@ import * as core from '../../shared/ui-core.js';
 export const renderDone = core.renderDone;
 export const renderParent = core.renderParent;
 export const renderRewards = core.renderRewards;
+export const renderAlbum = core.renderAlbum;
 export const gateMount = core.gateMount;
 export const celebrate = core.celebrate;
 export const mountQuit = core.mountQuit;
 
-export function renderHome(mount, state, handlers) {
-  core.renderHome(mount, { title: 'Count & Learn', mascot: '🔢', state, ranges: RANGES, modes: MODES, pickLabel: 'How high?', lessonChoices: state.lessonChoices, lessonLength: state.lessonLength }, handlers);
+export const LESSON_COUNTS = [5, 10, 15, 20];
+
+/**
+ * CONTEXT-AWARE options for the wizard (KWS-001 / AC2). Given the chosen activity (mode) return the
+ * ranges + question-counts that make sense for it:
+ *   • count  — objects are only renderable up to COUNT_CAP (20), so cap ranges at 20 (no "Up to 50/100/1000").
+ *   • trace  — supports every range (multi-digit traces one box per digit) → all ranges.
+ *   • hear / matchAudio / mixed — recognition spans the full range list.
+ * Counts are the standard lesson lengths; the count fix (srs.pickSession) guarantees EXACTLY N even
+ * when a small range has fewer unique cards than the picked count, so every count is always offered.
+ */
+export function optionsFor(activity) {
+  let ranges = RANGES;
+  if (activity === 'count') ranges = RANGES.filter((r) => Number(r.key) <= COUNT_CAP);
+  return { ranges, counts: LESSON_COUNTS };
+}
+
+export function renderWizard(mount, defaults, handlers) {
+  core.renderWizard(mount, {
+    title: 'Count & Learn', mascot: '🔢', activities: MODES, optionsFor, pickLabel: 'How high?', defaults,
+  }, handlers);
 }
 
 /** Tap-answer modes: count (objects), hear (audio→numeral), matchAudio (numeral→audio). */

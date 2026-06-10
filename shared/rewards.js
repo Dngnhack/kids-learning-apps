@@ -9,12 +9,19 @@
 import { MAX_BOX } from './srs.js';
 
 // Collectible set — one earned per completed LESSON (deterministic, high-water, zero asset weight).
-// 24 distinct stickers give a long, satisfying collection runway (no FOMO/loot/countdown — every
-// finished lesson simply unlocks the NEXT one in order; once unlocked it's kept forever). Ordered
-// roughly easy→special so the cadence feels like steady, earned progress.
+// A long, satisfying collection runway (≥40 distinct, KWS-001/AC4): every finished lesson simply
+// unlocks the NEXT sticker in order; once unlocked it's kept forever (no FOMO/loot/countdown/random).
+// Ordered loosely easy→special so the cadence feels like steady, earned progress. All kid-friendly,
+// positive, broadly-supported emoji — grouped (cute animals → sea/sky → nature → treats → sky/space).
 export const STICKERS = [
+  // friendly animals
   '🦊', '🐰', '🐼', '🦁', '🐧', '🐸', '🦉', '🐢', '🦄', '🐝', '🐬', '🦋',
   '🐳', '🦜', '🐙', '🦕', '🦖', '🐲', '🦚', '🦒', '🐨', '🦔', '🐹', '🐥',
+  '🐶', '🐱', '🐮', '🐷', '🦓', '🦘', '🦦', '🦩',
+  // nature + sky
+  '🌈', '⭐', '🌟', '🌙', '☀️', '⛄', '🌸', '🌻',
+  // treats + fun
+  '🍓', '🍉', '🍦', '🍩', '🧁', '🎈', '🎁', '🚀',
 ];
 
 // Mastery badges (learning milestones) — drive the progress map too.
