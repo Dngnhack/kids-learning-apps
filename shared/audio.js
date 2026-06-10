@@ -33,22 +33,57 @@ if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
   try { window.speechSynthesis.addEventListener('voiceschanged', pickVoice); } catch (_e) { /* ignore */ }
 }
 
+// ── Speech serialization (fixes overlap/cutoff during transitions) ──────────────
+// A single-utterance queue: each clip finishes (onend) before the next starts, so
+// prompts never overlap. A new prompt by default INTERRUPTS cleanly (stops current +
+// clears the queue, then speaks) — no two voices at once. Pass opts.queue=true to
+// chain after the current clip instead of interrupting. The deferred speak() after
+// cancel() also dodges the Chrome cancel→speak race (where the old clip keeps playing).
+let _q = [];
+let _speaking = false;
+let _gen = 0; // bumped by every stopSpeech()/interrupt so a DEFERRED speak from a prior clip is dropped
+function _drain() {
+  if (_speaking || !_q.length || !('speechSynthesis' in window)) return;
+  const u = _q.shift();
+  _speaking = true;
+  const myGen = _gen;
+  const done = () => { if (myGen !== _gen) return; _speaking = false; _drain(); };
+  u.onend = done; u.onerror = done;
+  // small defer lets a prior cancel() settle (Chrome quirk) so this clip actually plays. If a
+  // stopSpeech()/interrupt happened in that window, _gen moved on → we drop this stale utterance
+  // (prevents a cancelled clip from still speaking → no overlap on rapid transitions).
+  setTimeout(() => {
+    if (myGen !== _gen) return;                 // superseded — don't speak the stale clip
+    try { window.speechSynthesis.speak(u); } catch (_e) { done(); }
+  }, 40);
+}
+
+/** Stop any current/queued speech immediately (call on transitions to prevent overlap). */
+export function stopSpeech() {
+  _gen++;                                        // invalidate any in-flight deferred speak()
+  _q = [];
+  try { window.speechSynthesis.cancel(); } catch (_e) { /* ignore */ }
+  _speaking = false;
+}
+
 /**
  * Speak a short word/number/equation in a warm, slow, child-friendly voice (preschool-teacher
  * cadence). No-op if unsupported/muted. opts.rate / opts.pitch override the gentle defaults.
+ * Default = interrupt (no overlap); opts.queue=true chains after the current clip.
  */
 export function speak(text, opts = {}) {
   if (!enabled) return;
   try {
     if (!('speechSynthesis' in window)) return;
     if (!preferredVoice) pickVoice();
+    if (opts.queue !== true) stopSpeech();   // clean interrupt: no two clips at once
     const u = new SpeechSynthesisUtterance(String(text));
     u.rate = typeof opts.rate === 'number' ? opts.rate : 0.78;   // slower = clearer, gentler
     u.pitch = typeof opts.pitch === 'number' ? opts.pitch : 1.15; // warm, child-friendly
     u.volume = 1; u.lang = 'en-US';
     if (preferredVoice) u.voice = preferredVoice;
-    window.speechSynthesis.cancel();
-    window.speechSynthesis.speak(u);
+    _q.push(u);
+    _drain();
   } catch (_e) { /* ignore */ }
 }
 

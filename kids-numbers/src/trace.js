@@ -48,8 +48,18 @@ export function strokeStarts(digit) {
   return starts;
 }
 
-/** Which digit to trace for a value (single-digit pre-writing). */
+/** Which digit to trace for a value (single-digit pre-writing). @deprecated multi-digit drops all but the last — use traceDigits(). */
 export function traceDigit(value) { return value <= 9 ? value : value % 10; }
+
+/**
+ * ALL digits of a value, in left-to-right order, so multi-digit numbers (12 -> [1,2],
+ * 250 -> [2,5,0]) are traced digit-by-digit in sequence. The UI renders one trace box per
+ * digit and requires each to complete in order. (Fixes the multi-digit bug where only the
+ * last digit was traceable.)
+ */
+export function traceDigits(value) {
+  return String(Math.abs(Math.trunc(Number(value) || 0))).split('').map(Number);
+}
 
 /**
  * Advance ONE checkpoint if the pointer is within tolerance of the NEXT checkpoint. The FINAL

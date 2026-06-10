@@ -8,8 +8,14 @@
 
 import { MAX_BOX } from './srs.js';
 
-// Collectible set — one earned per completed lesson (zero asset weight, lean).
-export const STICKERS = ['🦊', '🐰', '🐼', '🦁', '🐧', '🐸', '🦉', '🐢', '🦄', '🐝', '🐬', '🦋'];
+// Collectible set — one earned per completed LESSON (deterministic, high-water, zero asset weight).
+// 24 distinct stickers give a long, satisfying collection runway (no FOMO/loot/countdown — every
+// finished lesson simply unlocks the NEXT one in order; once unlocked it's kept forever). Ordered
+// roughly easy→special so the cadence feels like steady, earned progress.
+export const STICKERS = [
+  '🦊', '🐰', '🐼', '🦁', '🐧', '🐸', '🦉', '🐢', '🦄', '🐝', '🐬', '🦋',
+  '🐳', '🦜', '🐙', '🦕', '🦖', '🐲', '🦚', '🦒', '🐨', '🦔', '🐹', '🐥',
+];
 
 // Mastery badges (learning milestones) — drive the progress map too.
 export const BADGES = [

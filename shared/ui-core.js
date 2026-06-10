@@ -1,4 +1,4 @@
-// ui-core.js — shared generic DOM rendering used by all kids' apps: home
+// ui-core.js — SHARED generic DOM rendering used by all kids' apps: home
 // (level + mode pickers + rewards button), select-then-submit answer panel, celebrations,
 // gentle retry, done, parent scorecard, rewards shelf, gate mount.
 // App-specific QUESTION screens live in each app's own ui.js. Reduced-motion + mute respected.
@@ -90,9 +90,48 @@ export function answerPanel(choices, { mode = 'numeral', onSubmit, onHear }) {
   return { node: wrap, controller };
 }
 
-/** Home: mascot + title + level chips + mode picker + start + rewards + grown-ups. */
-export function renderHome(mount, { title, mascot, state, ranges, modes, pickLabel = 'How high?' }, handlers) {
-  const { onStart, onParent, onPickRange, onPickMode, onRewards } = handlers;
+/**
+ * SHARED in-lesson Home/Quit control. Mounts a small ⌂ button (top-right) onto a play/trace screen.
+ * Tapping it shows a child-safe confirm — "Quit lesson? Progress will be lost — Quit / Keep playing".
+ * Quit → onQuit() (the app stops audio + returns home); Keep playing → just dismisses the dialog and
+ * resumes. Re-usable across BOTH apps so the behaviour + copy stay identical. Returns the button node.
+ * @param {HTMLElement} screen the .screen wrapper of the current lesson question/trace
+ * @param {() => void} onQuit called when the child confirms Quit (app handles stopSpeech + home)
+ */
+export function mountQuit(screen, onQuit) {
+  if (!screen) return null;
+  const btn = el('button', { class: 'quit-btn', 'aria-label': 'Quit lesson and go home', title: 'Home' }, '⌂');
+  btn.addEventListener('click', () => showQuitConfirm(screen, onQuit));
+  screen.append(btn);
+  return btn;
+}
+
+/** The "Quit lesson? Progress will be lost" confirm overlay (Quit / Keep playing). */
+function showQuitConfirm(screen, onQuit) {
+  if (screen.querySelector('.quit-confirm')) return;       // already open — don't stack
+  const overlay = el('div', { class: 'quit-confirm', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Quit lesson?' });
+  const card = el('div', { class: 'quit-card' });
+  card.append(el('div', { class: 'quit-title' }, 'Quit lesson?'));
+  card.append(el('div', { class: 'quit-msg' }, 'Progress will be lost.'));
+  const actions = el('div', { class: 'quit-actions' });
+  const quit = el('button', { class: 'btn btn-ghost quit-yes' }, '⌂  Quit');
+  const keep = el('button', { class: 'btn quit-keep' }, '▶  Keep playing');
+  quit.addEventListener('click', () => { overlay.remove(); onQuit(); });
+  keep.addEventListener('click', () => overlay.remove());   // resume — nothing else changes
+  actions.append(keep, quit);
+  card.append(actions);
+  overlay.append(card);
+  screen.append(overlay);
+  keep.focus();
+}
+
+/** Home: mascot + title + level chips + mode picker + lesson-length picker + start + rewards +
+ *  grown-ups. The RANGE and LESSON-LENGTH pickers are surfaced right here (post-mode flow, Fix 4):
+ *  after picking a game the child/parent can set how high the numbers go AND how many questions a
+ *  lesson is — no need to dig into the grown-ups area. lessonChoices/lessonLength/onPickLength are
+ *  optional; when omitted the length picker is hidden (back-compat). */
+export function renderHome(mount, { title, mascot, state, ranges, modes, pickLabel = 'How high?', lessonChoices, lessonLength }, handlers) {
+  const { onStart, onParent, onPickRange, onPickMode, onPickLength, onRewards } = handlers;
   mount.innerHTML = '';
   const wrap = el('div', { class: 'screen home' });
   wrap.append(el('div', { class: 'mascot bob', 'aria-hidden': 'true' }, mascot), el('h1', { class: 'title' }, title));
@@ -100,7 +139,7 @@ export function renderHome(mount, { title, mascot, state, ranges, modes, pickLab
   wrap.append(el('div', { class: 'pick-label' }, pickLabel));
   const rwrap = el('div', { class: 'chips' });
   for (const r of ranges) {
-    const b = el('button', { class: 'chip' + (r.key === state.rangeKey ? ' on' : '') }, r.label);
+    const b = el('button', { class: 'chip' + (r.key === state.rangeKey ? ' on' : ''), 'aria-pressed': String(r.key === state.rangeKey) }, r.label);
     b.addEventListener('click', () => onPickRange(r));
     rwrap.append(b);
   }
@@ -116,6 +155,18 @@ export function renderHome(mount, { title, mascot, state, ranges, modes, pickLab
     mwrap.append(b);
   });
   wrap.append(mwrap);
+
+  // Lesson length (how many questions) — surfaced in the home flow so it's pickable without the gate.
+  if (onPickLength && lessonChoices && lessonChoices.length) {
+    wrap.append(el('div', { class: 'pick-label' }, 'How many questions?'));
+    const lwrap = el('div', { class: 'chips' });
+    for (const n of lessonChoices) {
+      const b = el('button', { class: 'chip' + (n === lessonLength ? ' on' : ''), 'aria-pressed': String(n === lessonLength) }, String(n));
+      b.addEventListener('click', () => onPickLength(n));
+      lwrap.append(b);
+    }
+    wrap.append(lwrap);
+  }
 
   const start = el('button', { class: 'btn btn-big', 'aria-label': 'Start' }, '▶  Start');
   start.addEventListener('click', onStart);

@@ -42,12 +42,13 @@ function concreteMode(q) {
 }
 
 function home() {
-  ui.renderHome(mount, { rangeKey: settings.rangeKey, mode: settings.mode }, {
+  ui.renderHome(mount, { rangeKey: settings.rangeKey, mode: settings.mode, lessonChoices: LESSON_CHOICES, lessonLength: sessionSize() }, {
     onStart: startSession,
     onParent: openParentGate,
     onRewards: openRewards,
     onPickRange: (r) => { settings.rangeKey = r.key; store.saveSettings(settings); home(); },
     onPickMode: (mode) => { settings.mode = mode; store.saveSettings(settings); home(); },
+    onPickLength: (n) => { settings.lessonLength = n; store.saveSettings(settings); home(); },
   });
 }
 
@@ -59,6 +60,9 @@ function startSession() {
   nextQuestion();
 }
 
+/** Abandon the current lesson: stop any speech and return to the home screen (Fix 7 — Quit). */
+function quitToHome() { audio.stopSpeech(); home(); }
+
 function nextQuestion() {
   if (pos >= session.length) return finishSession();
   missed = false; stats.total += 1; startTime = now();
@@ -68,6 +72,7 @@ function nextQuestion() {
     onSubmit: (picked) => handleAnswer(q, picked, ctrl),
     onHear: () => audio.speak(spoken(q)),
   });
+  ui.mountQuit(mount.querySelector('.screen'), quitToHome); // shared in-lesson Home/Quit control (Fix 7)
   if (q.mode === 'hear') audio.speak(spoken(q));
 }
 

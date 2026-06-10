@@ -6,7 +6,9 @@
 :root {
   --blue: #2563eb; --blue-dark: #1e3a8a; --sun: #f59e0b; --green: #16a34a;
   --pink: #ec4899; --purple: #8b5cf6; --teal: #14b8a6; --red-soft: #fb7185;
-  --bg: #eef4ff; --ink: #0f172a; --white: #ffffff; --radius: 22px; --tap: 84px;
+  --bg: #eef4ff; --ink: #0f172a; --white: #ffffff; --radius: 22px;
+  /* answer tiles — bigger for little fingers (Fix 3: item scale); scales gently with viewport */
+  --tap: clamp(92px, 24vw, 120px);
 }
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 html, body { margin: 0; height: 100%; }
@@ -49,7 +51,7 @@ body {
 .eq-op { font-weight: 900; color: var(--sun); }
 
 .choices { display: flex; gap: 1rem; flex-wrap: wrap; justify-content: center; }
-.tile { width: var(--tap); height: var(--tap); font-size: 2.6rem; font-weight: 900; color: var(--blue-dark); background: var(--white); border: 5px solid #bfdbfe; border-radius: var(--radius); cursor: pointer; box-shadow: 0 5px 0 #cbd5e1; transition: transform .05s ease; }
+.tile { width: var(--tap); height: var(--tap); font-size: clamp(2.6rem, 9vw, 3.4rem); font-weight: 900; color: var(--blue-dark); background: var(--white); border: 5px solid #bfdbfe; border-radius: var(--radius); cursor: pointer; box-shadow: 0 5px 0 #cbd5e1; transition: transform .05s ease; }
 .tile:active { transform: translateY(3px); }
 .tile.t0 { border-color: #93c5fd; } .tile.t1 { border-color: #fbcfe8; } .tile.t2 { border-color: #ddd6fe; } .tile.t3 { border-color: #99f6e4; } .tile.t4 { border-color: #fde68a; }
 .tile.sel { border-color: var(--blue); background: #dbeafe; transform: translateY(2px) scale(1.04); box-shadow: 0 3px 0 #94a3b8; }
@@ -80,7 +82,17 @@ body {
 .big-numeral { font-size: clamp(5rem, 28vw, 9rem); font-weight: 900; color: var(--pink); line-height: 1; }
 
 /* trace */
-.trace-stage { position: relative; width: min(70vw, 260px); aspect-ratio: 100 / 140; }
+/* Multi-digit row: one box per digit, left-to-right. The row's column width drives each box so a
+   2-3 digit number stays inside a 360px phone (no overflow/clipping); single digit = one big box. */
+.trace-row { display: flex; gap: .5rem; align-items: center; justify-content: center; max-width: 96vw; }
+.trace-stage { position: relative; width: min(72vw, 360px); aspect-ratio: 100 / 140; flex: 0 0 auto; } /* Fix 3: bigger canvas */
+/* shrink per-box width as digit-count grows so the whole number fits on a narrow phone */
+.trace-row.multi .trace-stage { width: min(40vw, 170px); }
+.trace-row.multi:has(.trace-stage:nth-child(3)) .trace-stage { width: min(28vw, 120px); }    /* 3 digits */
+.trace-row.multi:has(.trace-stage:nth-child(4)) .trace-stage { width: min(21vw, 92px); }      /* 4 digits */
+.trace-stage.locked { opacity: .4; }                       /* a later digit, not reachable yet */
+.trace-stage.current { opacity: 1; }                       /* the digit being traced now */
+.trace-stage.done { opacity: .85; }                        /* a finished digit (kept visible) */
 .trace-svg { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; }
 .trace-track { fill: none; stroke: #cfe3ff; stroke-width: 28; stroke-linecap: round; stroke-linejoin: round; } /* bright wide hollow channel */
 .trace-outline { fill: none; stroke: #6aa3ec; stroke-width: 2.5; stroke-dasharray: 4 6; stroke-linecap: round; stroke-linejoin: round; opacity: .85; } /* dashed centerline guide */
@@ -127,6 +139,17 @@ body {
 .gate-input { font-size: 1.6rem; padding: .6rem; width: 140px; text-align: center; border: 3px solid #bfdbfe; border-radius: 14px; }
 .gate-actions { display: flex; gap: .8rem; }
 .gate-msg { color: #b45309; font-weight: 700; min-height: 1.2em; }
+
+/* in-lesson Home/Quit control (Fix 7) — small, top-right, out of the way of the play area */
+.quit-btn { position: absolute; top: .8rem; right: .8rem; z-index: 7; width: 52px; height: 52px; font-size: 1.5rem; line-height: 1; font-weight: 900; color: var(--blue-dark); background: var(--white); border: 3px solid #bfdbfe; border-radius: 50%; cursor: pointer; box-shadow: 0 4px 0 #cbd5e1; }
+.quit-btn:active { transform: translateY(3px); box-shadow: 0 1px 0 #cbd5e1; }
+.quit-confirm { position: absolute; inset: 0; z-index: 20; display: flex; align-items: center; justify-content: center; background: rgba(15,23,42,.45); padding: 1.2rem; }
+.quit-card { background: var(--white); border-radius: var(--radius); padding: 1.6rem 1.4rem; max-width: 340px; width: 92%; box-shadow: 0 12px 40px rgba(15,23,42,.35); animation: pop .2s ease both; }
+.quit-title { font-size: 1.6rem; font-weight: 900; color: var(--blue-dark); }
+.quit-msg { font-size: 1.1rem; color: #475569; font-weight: 700; margin: .4rem 0 1.1rem; }
+.quit-actions { display: flex; gap: .7rem; flex-wrap: wrap; justify-content: center; }
+.quit-keep { background: linear-gradient(180deg, #34d399, var(--green)); box-shadow: 0 6px 0 #0f7a37; }
+.quit-yes { font-size: 1.1rem; }
 
 @keyframes pop { from { transform: scale(.6); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 @keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-8px)} 75%{transform:translateX(8px)} }

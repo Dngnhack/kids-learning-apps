@@ -8,7 +8,7 @@ import { makeStorage } from '../../shared/storage.js';
 import { showParentGate } from '../../shared/parentGate.js';
 import { buildQuestion, isCorrect } from './game.js';
 import { DECK_META, idsForRange, sampleIds, getCard, COUNT_CAP, ENUM_CAP } from './decks/numbers.js';
-import { traceDigit } from './trace.js';
+import { traceDigits } from './trace.js';
 import * as ui from './ui.js';
 
 const DEFAULT_LESSON = 10; // a "lesson" defaults to 10 problems (parent-settable)
@@ -36,13 +36,15 @@ function concreteMode(value) {
   if (settings.mode !== 'mixed') return settings.mode;
   const opts = ['hear', 'matchAudio'];
   if (value <= COUNT_CAP) opts.push('count');
-  if (value <= 20) opts.push('trace');
+  opts.push('trace'); // trace any value now — multi-digit numbers trace one box per digit (trace.js)
   return opts[Math.floor(Math.random() * opts.length)];
 }
 
 function activeIds() {
   const max = rangeMax();
-  if (settings.mode === 'trace') return idsForRange(Math.min(max, 9));
+  // Trace now supports multi-digit numbers (one box per digit), so it spans the full enumerable
+  // range like recognition does — sampled above ENUM_CAP so we never enumerate 1000 SRS items.
+  if (settings.mode === 'trace') return max <= ENUM_CAP ? idsForRange(max) : sampleIds(max, BIG_SAMPLE);
   if (settings.mode === 'count') return idsForRange(Math.min(max, COUNT_CAP));
   // recognition OR mixed: span the full range (sampled if big); per-question mode excludes count/trace by value
   if (max <= ENUM_CAP) return idsForRange(max);
@@ -50,12 +52,13 @@ function activeIds() {
 }
 
 function home() {
-  ui.renderHome(mount, { rangeKey: settings.rangeKey, mode: settings.mode }, {
+  ui.renderHome(mount, { rangeKey: settings.rangeKey, mode: settings.mode, lessonChoices: LESSON_CHOICES, lessonLength: sessionSize() }, {
     onStart: startSession,
     onParent: openParentGate,
     onRewards: openRewards,
     onPickRange: (r) => { settings.rangeKey = r.key; store.saveSettings(settings); home(); },
     onPickMode: (mode) => { settings.mode = mode; store.saveSettings(settings); home(); },
+    onPickLength: (n) => { settings.lessonLength = n; store.saveSettings(settings); home(); },
   });
 }
 
@@ -67,6 +70,11 @@ function startSession() {
   nextQuestion();
 }
 
+/** Abandon the current lesson: stop any speech and return to the home screen (Fix 7 — Quit). */
+function quitToHome() { audio.stopSpeech(); home(); }
+/** Add the shared in-lesson Home/Quit control to whatever play/trace screen is mounted. */
+function addQuit() { ui.mountQuit(mount.querySelector('.screen'), quitToHome); }
+
 function nextQuestion() {
   if (pos >= session.length) return finishSession();
   missed = false; stats.total += 1; startTime = now();
@@ -75,7 +83,8 @@ function nextQuestion() {
   const mode = concreteMode(value);
 
   if (mode === 'trace') {
-    ui.renderTrace(mount, value, traceDigit(value), `${pos + 1} / ${session.length}`, { onComplete: () => onTraceDone(id) });
+    ui.renderTrace(mount, value, traceDigits(value), `${pos + 1} / ${session.length}`, { onComplete: () => onTraceDone(id) });
+    addQuit();
     audio.speak('Trace the ' + value);
     return;
   }
@@ -85,6 +94,7 @@ function nextQuestion() {
     onSubmit: (picked) => handleAnswer(q, picked, ctrl),
     onHear: (n) => audio.speak(String(n)),
   });
+  addQuit();
   if (q.mode === 'hear') audio.speak(String(q.value));
   else if (q.mode === 'count') audio.speak('How many?');
 }

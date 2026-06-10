@@ -11,9 +11,10 @@ export const renderParent = core.renderParent;
 export const renderRewards = core.renderRewards;
 export const gateMount = core.gateMount;
 export const celebrate = core.celebrate;
+export const mountQuit = core.mountQuit;
 
 export function renderHome(mount, state, handlers) {
-  core.renderHome(mount, { title: 'Add & Subtract', mascot: '➕', state, ranges: LEVELS, modes: MODES, pickLabel: 'Pick a level' }, handlers);
+  core.renderHome(mount, { title: 'Add & Subtract', mascot: '➕', state, ranges: LEVELS, modes: MODES, pickLabel: 'Pick a level', lessonChoices: state.lessonChoices, lessonLength: state.lessonLength }, handlers);
 }
 
 const EMOJI = '🍎';
