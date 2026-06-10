@@ -4,7 +4,7 @@
 
 import { RANGES, COUNT_CAP } from './decks/numbers.js';
 import { MODES } from './game.js';
-import { DIGIT_STROKES, TRACE_BOX, denseStrokes, checkpoints, strokeStarts, advance, isComplete, nearestOnPath } from './trace.js';
+import { DIGIT_STROKES, TRACE_BOX, denseStrokes, createTracer, nearestOnPath } from './trace.js';
 import * as core from '../../shared/ui-core.js';
 
 export const renderDone = core.renderDone;
@@ -18,7 +18,7 @@ export const mountQuit = core.mountQuit;
 export const LESSON_COUNTS = [5, 10, 15, 20];
 
 /**
- * CONTEXT-AWARE options for the wizard ( / AC2). Given the chosen activity (mode) return the
+ * CONTEXT-AWARE options for the wizard. Given the chosen activity (mode) return the
  * ranges + question-counts that make sense for it:
  *   • count  — objects are only renderable up to COUNT_CAP (20), so cap ranges at 20 (no "Up to 50/100/1000").
  *   • trace  — supports every range (multi-digit traces one box per digit) → all ranges.
@@ -91,7 +91,9 @@ export function renderTrace(mount, value, digits, progressText, { onComplete }) 
   const row = core.el('div', { class: 'trace-row' + (multiDigit ? ' multi' : '') });
   wrap.append(row);
 
-  const hint = core.el('div', { class: 'trace-hint', 'aria-hidden': 'true' }, 'Stay on the line — follow the arrows!');
+  const HINT_LINE = 'Stay on the line — follow the arrows!';
+  const HINT_LIFT = 'Lift your finger — then start at the next green dot!';
+  const hint = core.el('div', { class: 'trace-hint', 'aria-hidden': 'true' }, HINT_LINE);
   hint.style.display = 'none'; wrap.append(hint);
   mount.append(wrap);
 
@@ -108,22 +110,26 @@ export function renderTrace(mount, value, digits, progressText, { onComplete }) 
   }));
 
   // the cue is shared across boxes (only the active box shows it)
-  const showCue = () => { clearTimeout(hintTimer); const b = boxes[active]; if (b && b.started() && !b.done()) hint.style.display = ''; };
+  const showCue = () => { clearTimeout(hintTimer); const b = boxes[active]; if (b && b.started() && !b.done()) { hint.textContent = HINT_LINE; hint.style.display = ''; } };
+  const showLiftCue = () => { clearTimeout(hintTimer); hint.textContent = HINT_LIFT; hint.style.display = ''; }; // stroke finished — teach the lift
   const clearCue = () => { hint.style.display = 'none'; clearTimeout(hintTimer); hintTimer = setTimeout(showCue, 2400); };
 
   boxes.forEach((b) => row.append(b.node));
   boxes[0].activate();           // first digit is live; the rest wait their turn
   hintTimer = setTimeout(showCue, 2400);
 
-  /** One traceable digit box. onDone() fires when this digit's final checkpoint is reached. */
+  /** One traceable digit box. onDone() fires when this digit's final checkpoint is reached.
+   *  Tracing is PER-STROKE (trace v5): the tracer REQUIRES a finger lift between strokes of
+   *  multi-stroke digits (4 5 7) and rejects a continuous scribble across strokes. */
   function makeTraceBox(digit, di, onDone) {
     const SVGNS = 'http://www.w3.org/2000/svg';
     const mk = (t) => document.createElementNS(SVGNS, t);
     const uid = `${di}-${digit}`;                              // unique per box (gradient ids must not collide)
     const vstrokes = DIGIT_STROKES[digit] || DIGIT_STROKES[1]; // vertices → smooth track
     const dstrokes = denseStrokes(digit);                      // densified → dots + arrows
-    const points = checkpoints(digit);                         // flat ordered checkpoints
-    const starts = strokeStarts(digit);                        // flat index of each stroke's first dot
+    const tracer = createTracer(digit);                        // per-stroke, lift-enforcing engine
+    const points = tracer.points;                              // flat ordered checkpoints
+    const starts = tracer.starts;                              // flat index of each stroke's first dot
     const multi = vstrokes.length > 1;
 
     const stage = core.el('div', { class: 'trace-stage locked' });
@@ -142,9 +148,12 @@ export function renderTrace(mount, value, digits, progressText, { onComplete }) 
     for (const s of vstrokes) { const t = mk('polyline'); t.setAttribute('points', s.map((p) => p.join(',')).join(' ')); t.setAttribute('class', 'trace-track'); svg.append(t); }
     for (const s of vstrokes) { const o = mk('polyline'); o.setAttribute('points', s.map((p) => p.join(',')).join(' ')); o.setAttribute('class', 'trace-outline'); svg.append(o); }
 
-    // RAINBOW trail — rebuilt strictly from the reached path points (always ON the line, always in order)
-    const trail = mk('polyline'); trail.setAttribute('class', 'trace-trail'); trail.setAttribute('points', '');
-    trail.setAttribute('stroke', `url(#rainbow-${uid})`); svg.append(trail);
+    // RAINBOW trails — ONE polyline PER STROKE, rebuilt strictly from the reached path points
+    // (always ON the line, always in order, never a false connector between strokes).
+    const trails = dstrokes.map(() => {
+      const t = mk('polyline'); t.setAttribute('class', 'trace-trail'); t.setAttribute('points', '');
+      t.setAttribute('stroke', `url(#rainbow-${uid})`); svg.append(t); return t;
+    });
 
     // direction ARROWS along each stroke; each tagged with the flat checkpoint index it points toward → lit in sequence
     const arrows = [];
@@ -161,50 +170,80 @@ export function renderTrace(mount, value, digits, progressText, { onComplete }) 
     });
     // checkpoint dots (densified, ordered)
     const dots = points.map((p) => { const c = mk('circle'); c.setAttribute('cx', p[0]); c.setAttribute('cy', p[1]); c.setAttribute('r', '5'); c.setAttribute('class', 'cp'); svg.append(c); return c; });
-    // numbered START marker(s): green circle (+ stroke number for multi-stroke digits) at each stroke start
-    starts.forEach((si, k) => {
+    // numbered START marker(s): green circle (+ stroke number for multi-stroke digits) at each stroke
+    // start. Only the CURRENT stroke's marker is shown (sequential reveal — see markNext): strokes
+    // that share a start corner (4, 5) would otherwise stack their dots, and the child should see
+    // exactly one "put your finger HERE" dot at a time.
+    const startMarks = starts.map((si, k) => {
       const [sx, sy] = points[si];
       const g = mk('circle'); g.setAttribute('cx', sx); g.setAttribute('cy', sy); g.setAttribute('r', '11'); g.setAttribute('class', 'cp-start'); svg.append(g);
-      if (multi) { const n = mk('text'); n.setAttribute('x', sx); n.setAttribute('y', sy + 4); n.setAttribute('text-anchor', 'middle'); n.setAttribute('class', 'cp-start-num'); n.textContent = String(k + 1); svg.append(n); }
+      let n = null;
+      if (multi) { n = mk('text'); n.setAttribute('x', sx); n.setAttribute('y', sy + 4); n.setAttribute('text-anchor', 'middle'); n.setAttribute('class', 'cp-start-num'); n.textContent = String(k + 1); svg.append(n); }
+      return { dot: g, num: n };
     });
     stage.append(svg);
 
     const TOL = 16;
-    let idx = 0, live = false, finished = false;
+    let live = false, finished = false;
     const norm = (e) => {
       const r = svg.getBoundingClientRect();
       const cx = e.touches ? e.touches[0].clientX : e.clientX;
       const cy = e.touches ? e.touches[0].clientY : e.clientY;
       return [((cx - r.left) / r.width) * TRACE_BOX.w, ((cy - r.top) / r.height) * TRACE_BOX.h];
     };
-    // The trail is ALWAYS the reached on-path polyline (points[0..idx]) — never raw finger input → it
-    // can never draw outside the line and never out of order.
-    const drawTrail = () => trail.setAttribute('points', points.slice(0, idx + 1).map((p) => p.join(',')).join(' '));
-    const markNext = () => { dots.forEach((d, i) => d.classList.toggle('next', i === idx)); arrows.forEach((a) => a.el.classList.toggle('lit', a.t >= idx && a.t < idx + 4)); };
+    // Each stroke's trail is ALWAYS its reached on-path slice — never raw finger input → it can
+    // never draw outside the line, never out of order, and never bridges two strokes.
+    const drawTrails = () => {
+      const idx = tracer.idx();
+      trails.forEach((t, si) => {
+        const from = starts[si], to = Math.min(idx + 1, tracer.ends[si]);
+        t.setAttribute('points', idx > from ? points.slice(from, to).map((p) => p.join(',')).join(' ') : '');
+      });
+    };
+    const markNext = () => {
+      const idx = tracer.idx();
+      dots.forEach((d, i) => { d.classList.toggle('next', i === idx); d.classList.toggle('hit', i < idx); });
+      arrows.forEach((a) => a.el.classList.toggle('lit', a.t >= idx && a.t < idx + 4));
+      // sequential start-dot reveal: show ONLY the stroke the child should start next
+      // (during the lift gate that is the UPCOMING stroke — guides the finger to its start dot)
+      const cur = tracer.needsLift() ? tracer.strokeIndex() + 1 : tracer.strokeIndex();
+      startMarks.forEach((m, k) => {
+        const show = k === cur && !tracer.complete();
+        m.dot.style.display = show ? '' : 'none';
+        if (m.num) m.num.style.display = show ? '' : 'none';
+      });
+    };
 
-    const move = (e) => {
+    const handle = (e, isDown) => {
       if (!live) return;                                             // only the active box accepts input
       const [x, y] = norm(e);
-      const onPath = nearestOnPath(digit, x, y).dist <= TOL;         // is the finger ON the numeral line?
-      let moved = false, ni = advance(points, idx, x, y);            // advance() only matches the NEXT dot → in-order, no skip
-      while (ni !== idx) { idx = ni; if (dots[idx - 1]) dots[idx - 1].classList.add('hit'); moved = true; ni = advance(points, idx, x, y); }
-      if (moved) { drawTrail(); markNext(); clearCue(); }            // progressed in order → extend the rainbow on the line
-      else if (!onPath) { showCue(); }                               // off-path or out-of-order → draw NOTHING + gentle cue
-      if (isComplete(points, idx)) {                                 // this digit's final checkpoint reached
+      const res = isDown ? tracer.down(x, y) : tracer.move(x, y);
+      if (res.moved) { drawTrails(); markNext(); clearCue(); }       // progressed in order → extend the rainbow
+      else if (res.rejected) { showLiftCue(); }                      // stroke done, finger still down → must LIFT
+      else if (tracer.isDown() && nearestOnPath(digit, x, y).dist > TOL) { showCue(); } // off-path → no draw + gentle cue
+      if (tracer.complete()) {                                       // this digit's final checkpoint reached
         finished = true; live = false;
-        svg.removeEventListener('pointermove', move); svg.removeEventListener('pointerdown', move);
+        svg.removeEventListener('pointermove', onMove); svg.removeEventListener('pointerdown', onDown);
+        svg.removeEventListener('pointerup', onUp); svg.removeEventListener('pointercancel', onUp);
+        svg.removeEventListener('pointerleave', onUp);
         onDone();
       }
     };
+    const onDown = (e) => handle(e, true);
+    const onMove = (e) => handle(e, false);
+    const onUp = () => { if (!live) return; const lifted = tracer.needsLift(); tracer.up(); if (lifted) clearCue(); markNext(); }; // the LIFT arms the next stroke
 
-    svg.addEventListener('pointerdown', move);
-    svg.addEventListener('pointermove', move);
+    svg.addEventListener('pointerdown', onDown);
+    svg.addEventListener('pointermove', onMove);
+    svg.addEventListener('pointerup', onUp);
+    svg.addEventListener('pointercancel', onUp);
+    svg.addEventListener('pointerleave', onUp);
 
     return {
       node: stage,
       activate() { live = true; stage.classList.remove('locked'); stage.classList.add('current'); markNext(); },
       lock(done) { live = false; stage.classList.remove('current'); stage.classList.toggle('done', !!done); },
-      started: () => idx > 0,
+      started: () => tracer.idx() > 0,
       done: () => finished,
     };
   }

@@ -51,7 +51,7 @@ function activeIds() {
   return sampleIds(max, BIG_SAMPLE);
 }
 
-/** Home is now the step-by-step WIZARD ( / AC1): Activity → Range → #Questions, then start. */
+/** Home is now the step-by-step WIZARD: Activity → Range → #Questions, then start. */
 function home() {
   ui.renderWizard(mount, { activity: settings.mode, rangeKey: settings.rangeKey, count: sessionSize() }, {
     onStart: startSession,

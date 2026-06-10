@@ -116,7 +116,7 @@ body {
 .map-node { width: 52px; height: 52px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.6rem; background: #e2e8f0; border: 3px solid #cbd5e1; }
 .map-node.on { background: #fef3c7; border-color: var(--sun); }
 .map-link { width: 22px; height: 5px; background: #cbd5e1; } .map-link.on { background: var(--sun); }
-/* Sticker shelf — BIGGER stickers (/AC4): larger slots + emoji on the rewards preview row. */
+/* Sticker shelf — BIGGER stickers: larger slots + emoji on the rewards preview row. */
 .sticker-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: .55rem; max-width: 420px; }
 .sticker { width: 60px; height: 60px; border-radius: 16px; display: flex; align-items: center; justify-content: center; font-size: 2.4rem; background: #f1f5f9; border: 3px dashed #cbd5e1; color: #94a3b8; }
 .sticker.got { background: #ecfdf5; border: 3px solid var(--green); animation: pop .3s ease both; }
@@ -125,7 +125,7 @@ body {
 .sbadge { width: 52px; height: 52px; border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 1.4rem; background: #f1f5f9; border: 3px solid #cbd5e1; color: #94a3b8; }
 .sbadge.got { background: #eff6ff; border-color: var(--blue); }
 
-/* end-of-lesson reward moment — the earned sticker pops BIG (/AC4). */
+/* end-of-lesson reward moment — the earned sticker pops BIG. */
 .lesson-sticker { display: flex; flex-direction: column; align-items: center; gap: .25rem; }
 .big-sticker { font-size: clamp(5rem, 26vw, 8rem); line-height: 1; animation: pop .35s ease both; filter: drop-shadow(0 6px 10px rgba(15,23,42,.18)); }
 
@@ -154,7 +154,7 @@ body {
 .quit-keep { background: linear-gradient(180deg, #34d399, var(--green)); box-shadow: 0 6px 0 #0f7a37; }
 .quit-yes { font-size: 1.1rem; }
 
-/* ── Step-by-step WIZARD (/AC1) — Activity → Range → #Questions ──────────────
+/* ── Step-by-step WIZARD — Activity → Range → #Questions ──────────────
    Each .wiz-screen is absolutely stacked in .wizard so one slides OUT while the next slides IN.
    Transforms are disabled under prefers-reduced-motion (see the media query at the bottom). */
 .wizard { position: relative; flex: 1; display: flex; overflow: hidden; }
@@ -177,7 +177,7 @@ body {
 .big-chip.on { background: var(--blue); color: var(--white); border-color: var(--blue); }
 .wiz-start { margin-top: .4rem; }
 
-/* ── Sticker ALBUM / book (/AC5) ─────────────────────────────────────────────
+/* ── Sticker ALBUM / book ─────────────────────────────────────────────
    Filled slots show the earned sticker in colour; empty slots are a dashed ☆ placeholder. */
 .album { gap: .7rem; max-width: 520px; }
 .album-count { font-size: 1.2rem; }

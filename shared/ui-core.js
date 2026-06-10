@@ -1,4 +1,4 @@
-// ui-core.js — SHARED generic DOM rendering used by all kids' apps : home
+// ui-core.js — SHARED generic DOM rendering used by all kids' apps (shared core): home
 // (level + mode pickers + rewards button), select-then-submit answer panel, celebrations,
 // gentle retry, done, parent scorecard, rewards shelf, gate mount.
 // App-specific QUESTION screens live in each app's own ui.js. Reduced-motion + mute respected.
@@ -388,7 +388,7 @@ export function renderRewards(mount, r, { onBack, onAlbum }) {
 }
 
 /**
- * SHARED STICKER ALBUM / photo-book screen ( / AC5). A persistent collectible book: every
+ * SHARED STICKER ALBUM / photo-book screen. A persistent collectible book: every
  * sticker slot is shown — FILLED (earned, in colour) or EMPTY (a dashed "not yet" slot) — and fills
  * over time as lessons are finished. Pageable when the collection is large (a fixed page size keeps
  * a phone tidy). Reads the existing local rewards store via the passed model (zero new data, survives
