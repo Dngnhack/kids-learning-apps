@@ -2,7 +2,7 @@
 // submit answer panel, celebrations, rewards shelf, done, parent scorecard, gate) comes from the
 // SHARED ui-core (no duplication).
 
-import { RANGES, COUNT_CAP, TRACE_CAP } from './decks/numbers.js';
+import { RANGES, COUNT_CAP } from './decks/numbers.js';
 import { MODES } from './game.js';
 import { DIGIT_STROKES, TRACE_BOX, denseStrokes, createTracer, nearestOnPath } from './trace.js';
 import * as core from '../../shared/ui-core.js';
@@ -21,9 +21,7 @@ export const LESSON_COUNTS = [5, 10, 15, 20];
  * CONTEXT-AWARE options for the wizard. Given the chosen activity (mode) return the
  * ranges + question-counts that make sense for it:
  *   • count  — objects are only renderable up to COUNT_CAP (20), so cap ranges at 20 (no "Up to 50/100/1000").
- *   • trace  — SINGLE DIGITS ONLY (0..9): tracing forms one numeral shape, so only the small ranges
- *     are offered (Up to 5 / Up to 10; a "10" pick is clamped to 0..9 in main.js so 10 itself never
- *     traces). Multi-digit numbers do NOT trace anymore (Randy) — they still appear in count/hear/match/math.
+ *   • trace  — supports every range (multi-digit traces one box per digit) → all ranges.
  *   • hear / matchAudio / mixed — recognition spans the full range list.
  * Counts are the standard lesson lengths; the count fix (srs.pickSession) guarantees EXACTLY N even
  * when a small range has fewer unique cards than the picked count, so every count is always offered.
@@ -31,9 +29,6 @@ export const LESSON_COUNTS = [5, 10, 15, 20];
 export function optionsFor(activity) {
   let ranges = RANGES;
   if (activity === 'count') ranges = RANGES.filter((r) => Number(r.key) <= COUNT_CAP);
-  // TRACE is single-digit only: offer just the small ranges. A "10" pick is clamped to 0..9 by the
-  // engine (main.js), so the child still gets 6/7/8/9 but never a two-digit value to trace.
-  else if (activity === 'trace') ranges = RANGES.filter((r) => Number(r.key) <= TRACE_CAP + 1);
   return { ranges, counts: LESSON_COUNTS };
 }
 

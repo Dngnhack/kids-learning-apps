@@ -11,8 +11,6 @@ const EMOJI = ['', '🍎','🐤','⭐','🐠','🌸','🍓','🦋','🐞','🌼'
 
 export const COUNT_CAP = 20;  // count-objects mode never renders more than this many objects
 export const ENUM_CAP = 100;  // numerals 0..ENUM_CAP are tracked individually; above this we sample
-export const TRACE_CAP = 9;   // TRACE is single-digits ONLY (0..9) — multi-digit numbers never trace
-                              // (they still appear in count/hear/match/math). Randy directive.
 
 /** Selectable ranges. Recognition modes (Listen/Match) scale high; Count caps objects (see main). */
 export const RANGES = [

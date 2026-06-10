@@ -9,7 +9,7 @@ import * as rewards from '../../shared/rewards.js';
 import { makeStorage } from '../../shared/storage.js';
 import { showParentGate } from '../../shared/parentGate.js';
 import { buildQuestion, isCorrect } from './game.js';
-import { DECK_META, idsForRange, sampleIds, getCard, COUNT_CAP, ENUM_CAP, TRACE_CAP } from './decks/numbers.js';
+import { DECK_META, idsForRange, sampleIds, getCard, COUNT_CAP, ENUM_CAP } from './decks/numbers.js';
 import { traceDigits } from './trace.js';
 import * as ui from './ui.js';
 
@@ -32,22 +32,41 @@ let stats = { total: 0, correct: 0 };
 const now = () => (typeof performance !== 'undefined' ? performance.now() : 0);
 const rangeMax = () => Number(settings.rangeKey) || 10;
 
+const REWARD_BEAT_MS = 300;   // small beat AFTER the cheer finishes before advancing (lets it land)
+const CHEER_MAX_MS = 2600;    // hard cap: a failed/slow cheer clip can never hang the game
+
+/** Resolve after the in-flight cheer Promise settles, but never wait longer than CHEER_MAX_MS so a
+ *  failed/stalled clip can't freeze the lesson. Pass the Promise returned by playCheer (or null). */
+function awaitCheer(cheerPromise) {
+  const safe = Promise.resolve(cheerPromise).catch(() => {});
+  return Promise.race([safe, new Promise((r) => setTimeout(r, CHEER_MAX_MS))]);
+}
+
+/** Play the full celebration, THEN (after the cheer's onended + a small beat) advance to the next
+ *  question. Awaiting the cheer means the next prompt's stopClips no longer chops it mid-play. The
+ *  max-timeout fallback inside awaitCheer guarantees we always advance even if the clip fails. */
+function celebrateThenAdvance(cheerPromise) {
+  awaitCheer(cheerPromise).then(() => setTimeout(advance, REWARD_BEAT_MS));
+}
+
+/** Move to the next question (the single advance point). */
+function advance() { pos += 1; nextQuestion(); }
+
 /** Resolve the concrete mode for a question — 'mixed' picks a random AVAILABLE mode for this value
  * (auto-excludes count-objects above the cap, and keeps trace to sensible low numbers). */
 function concreteMode(value) {
   if (settings.mode !== 'mixed') return settings.mode;
   const opts = ['hear', 'matchAudio'];
   if (value <= COUNT_CAP) opts.push('count');
-  if (value <= TRACE_CAP) opts.push('trace'); // TRACE is single-digit only (0..9); multi-digit never traces
+  opts.push('trace'); // trace any value now — multi-digit numbers trace one box per digit (trace.js)
   return opts[Math.floor(Math.random() * opts.length)];
 }
 
 function activeIds() {
   const max = rangeMax();
-  // TRACE is single-digit ONLY (0..9): clamp to TRACE_CAP so a trace session can never produce a
-  // multi-digit value (a "10" range pick yields 0..9, never 10). Multi-digit numbers still appear in
-  // count/hear/match/math — just not in trace (Randy directive).
-  if (settings.mode === 'trace') return idsForRange(Math.min(max, TRACE_CAP));
+  // Trace now supports multi-digit numbers (one box per digit), so it spans the full enumerable
+  // range like recognition does — sampled above ENUM_CAP so we never enumerate 1000 SRS items.
+  if (settings.mode === 'trace') return max <= ENUM_CAP ? idsForRange(max) : sampleIds(max, BIG_SAMPLE);
   if (settings.mode === 'count') return idsForRange(Math.min(max, COUNT_CAP));
   // recognition OR mixed: span the full range (sampled if big); per-question mode excludes count/trace by value
   if (max <= ENUM_CAP) return idsForRange(max);
@@ -114,8 +133,7 @@ function handleAnswer(q, picked, ctrl) {
     if (!missed) { srs.recordAnswer(progress, q.id, true, { responseMs: now() - startTime }); stats.correct += 1; }
     store.save(progress);
     ctrl.markCorrect();
-    rewardCorrect();
-    setTimeout(() => { pos += 1; nextQuestion(); }, 1250);
+    celebrateThenAdvance(rewardCorrect());   // play the FULL cheer, then beat, then advance
   } else {
     if (!missed) { srs.recordAnswer(progress, q.id, false, { responseMs: now() - startTime }); store.save(progress); missed = true; }
     ctrl.markWrongRetry();
@@ -126,11 +144,13 @@ function handleAnswer(q, picked, ctrl) {
 function onTraceDone(id) {
   if (!missed) { srs.recordAnswer(progress, id, true, { responseMs: now() - startTime }); stats.correct += 1; }
   store.save(progress);
-  rewardCorrect();
-  setTimeout(() => { pos += 1; nextQuestion(); }, 1250);
+  celebrateThenAdvance(rewardCorrect());     // trace completion: full cheer, then beat, then advance
 }
 
-/** Celebrate a correct answer; a newly-crossed mastery BADGE makes it extra special. */
+/** Celebrate a correct answer; a newly-crossed mastery BADGE makes it extra special.
+ *  Returns a Promise that resolves when the celebration's CHEER clip has FINISHED (its onended), so
+ *  the caller can advance only AFTER the cheer fully plays — the fix for the "congrats gets chopped"
+ *  bug. Resolves immediately for the badge path (no clip cheer there — the badge name is the voice). */
 function rewardCorrect() {
   const prevPeak = store.loadRewards().peak || 0;
   const r = rewards.update(store, progress);
@@ -142,15 +162,17 @@ function rewardCorrect() {
     // Big moment: keep the synthesized fireworks + the badge announcement (TTS). No clip cheer here —
     // the badge name is the spoken reward, so we don't pile a second voice on top.
     ui.celebrate(screen, true); audio.fireworks(); audio.speak(`New badge! ${badge.name}`);
-  } else {
-    ui.celebrate(screen, false);
-    // ONE random ORIGINAL cheer clip (our voice). Delayed so the just-spoken number CONFIRMATION clip
-    // (speakNumber, same single-clip player) gets to finish first — sequence, not jumble. The cheer
-    // and the confirmation share the no-overlap player, so the cheer cleanly follows; the next
-    // question's prompt later supersedes any tail (latest wins). Graceful skip if the clip fails — the
-    // WebAudio chime above already celebrated. Replaces the old TTS encourage() (one praise voice, not two).
-    setTimeout(() => { playCheer(); }, 900);
+    return Promise.resolve();
   }
+  ui.celebrate(screen, false);
+  // ONE random ORIGINAL cheer clip (our voice). Delayed so the just-spoken number CONFIRMATION clip
+  // (speakNumber, same single-clip player) gets to finish first — sequence, not jumble. We RETURN the
+  // cheer's Promise (resolves on its onended) so the caller waits for the FULL cheer before advancing;
+  // the old fire-and-forget let the next question's stopClips chop the cheer mid-play. Graceful skip if
+  // the clip fails — the WebAudio chime above already celebrated.
+  return new Promise((resolve) => {
+    setTimeout(() => { playCheer().then(resolve, resolve); }, 900);
+  });
 }
 
 function finishSession() {

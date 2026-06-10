@@ -35,6 +35,26 @@ let curRangeLetters = [];                         // the active range's letters 
 
 const now = () => (typeof performance !== 'undefined' ? performance.now() : 0);
 
+const REWARD_BEAT_MS = 300;   // small beat AFTER the cheer finishes before advancing (lets it land)
+const CHEER_MAX_MS = 2600;    // hard cap: a failed/slow cheer clip can never hang the game
+
+/** Resolve after the in-flight cheer Promise settles, but never wait longer than CHEER_MAX_MS so a
+ *  failed/stalled clip can't freeze the lesson. Pass the Promise returned by playCheer (or null). */
+function awaitCheer(cheerPromise) {
+  const safe = Promise.resolve(cheerPromise).catch(() => {});
+  return Promise.race([safe, new Promise((r) => setTimeout(r, CHEER_MAX_MS))]);
+}
+
+/** Play the full celebration, THEN (after the cheer's onended + a small beat) advance to the next
+ *  question. Awaiting the cheer means the next prompt's stopClips/stopPhoneme no longer chops it
+ *  mid-play. The max-timeout fallback inside awaitCheer guarantees we always advance. */
+function celebrateThenAdvance(cheerPromise) {
+  awaitCheer(cheerPromise).then(() => setTimeout(advance, REWARD_BEAT_MS));
+}
+
+/** Move to the next question (the single advance point). */
+function advance() { pos += 1; nextQuestion(); }
+
 /** The letter ids in play for the chosen activity + range. Trace is limited to letters we have
  *  geometry for; every other stage uses the whole range (each letter has a curated emoji + a sound
  *  via the phoneme seam). */
@@ -142,8 +162,7 @@ function handleAnswer(q, picked, ctrl) {
     if (q.mode === 'picture') audio.speak(`${q.name} for ${q.word}`); // "S for sun" — phrase, TTS
     else if (q.mode === 'phonics') audio.speak(q.word);               // confirm the blended word — TTS
     else speakLetterName(q.name);                                     // letter NAME confirm via bundled clip
-    rewardCorrect();
-    setTimeout(() => { pos += 1; nextQuestion(); }, 1400);
+    celebrateThenAdvance(rewardCorrect());   // play the FULL cheer, then beat, then advance
   } else {
     if (!missed) { srs.recordAnswer(progress, q.id, false, { responseMs: now() - startTime }); store.save(progress); missed = true; }
     ctrl.markWrongRetry();
@@ -154,11 +173,13 @@ function handleAnswer(q, picked, ctrl) {
 function onTraceDone(id) {
   if (!missed) { srs.recordAnswer(progress, id, true, { responseMs: now() - startTime }); stats.correct += 1; }
   store.save(progress);
-  rewardCorrect();
-  setTimeout(() => { pos += 1; nextQuestion(); }, 1250);
+  celebrateThenAdvance(rewardCorrect());     // trace completion: full cheer, then beat, then advance
 }
 
-/** Celebrate a correct answer; a newly-crossed mastery BADGE makes it extra special. */
+/** Celebrate a correct answer; a newly-crossed mastery BADGE makes it extra special.
+ *  Returns a Promise that resolves when the celebration's CHEER clip has FINISHED (its onended), so
+ *  the caller can advance only AFTER the cheer fully plays — the fix for the "congrats gets chopped"
+ *  bug. Resolves immediately for the badge path (no clip cheer there — the badge name is the voice). */
 function rewardCorrect() {
   const prevPeak = store.loadRewards().peak || 0;
   const r = rewards.update(store, progress);
@@ -170,14 +191,17 @@ function rewardCorrect() {
     // Big moment: synthesized fireworks + the badge announcement (TTS). No clip cheer here — the badge
     // name is the spoken reward, so we don't pile a second voice on top.
     ui.celebrate(screen, true); audio.fireworks(); audio.speak(`New badge! ${badge.name}`);
-  } else {
-    ui.celebrate(screen, false);
-    // ONE random ORIGINAL cheer clip (our voice). Delayed so the just-spoken letter/word CONFIRMATION
-    // (speakLetterName / audio.speak, see handleAnswer) finishes first — sequence, not jumble. The next
-    // question's prompt later supersedes any tail (latest wins). Graceful skip if the clip fails — the
-    // WebAudio chime above already celebrated. Replaces the old TTS encourage() (one praise voice, not two).
-    setTimeout(() => { playCheer(); }, 900);
+    return Promise.resolve();
   }
+  ui.celebrate(screen, false);
+  // ONE random ORIGINAL cheer clip (our voice). Delayed so the just-spoken letter/word CONFIRMATION
+  // (speakLetterName / audio.speak, see handleAnswer) finishes first — sequence, not jumble. We RETURN
+  // the cheer's Promise (resolves on its onended) so the caller waits for the FULL cheer before
+  // advancing; the old fire-and-forget let the next question's stopClips/stopPhoneme chop it mid-play.
+  // Graceful skip if the clip fails — the WebAudio chime above already celebrated.
+  return new Promise((resolve) => {
+    setTimeout(() => { playCheer().then(resolve, resolve); }, 900);
+  });
 }
 
 function finishSession() {
