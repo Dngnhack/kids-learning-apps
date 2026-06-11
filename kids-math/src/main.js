@@ -2,6 +2,7 @@
 
 import * as srs from '../../shared/srs.js';
 import * as audio from '../../shared/audio.js';
+import { speakNumber } from '../../shared/number-speech.js';
 import * as rewards from '../../shared/rewards.js';
 import { makeStorage } from '../../shared/storage.js';
 import { showParentGate } from '../../shared/parentGate.js';
@@ -83,7 +84,7 @@ function nextQuestion() {
 }
 
 function handleAnswer(q, picked, ctrl) {
-  audio.speak(String(picked)); // say-aloud the chosen answer
+  speakNumber(Number(picked)); // say the chosen number via the bundled-clip seam (single whole-number clip when available, else gapless blocks, else TTS)
   if (isCorrect(q, picked)) {
     if (!missed) { srs.recordAnswer(progress, q.id, true, { responseMs: now() - startTime }); stats.correct += 1; }
     store.save(progress);

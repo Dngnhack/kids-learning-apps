@@ -72,6 +72,48 @@ export function playClip(name, opts = {}) {
 }
 
 /**
+ * Play ONE clip by name, but PRELOAD/BUFFER it before starting so the opening isn't clipped on slow
+ * first plays. Waits for the element's `canplaythrough` (enough buffered to play start→end without
+ * stalling), with a short safety-net timer in case a browser never fires it. Resolves true when the
+ * clip finishes (or is cleanly superseded), false on load/codec/autoplay error so the caller can fall
+ * back. This is the player for SINGLE continuous whole-number clips (one file = one whole number, no
+ * inter-part gap) — see number-speech.speakNumber.
+ * @param {string} name e.g. 'numbers/123'
+ * @returns {Promise<boolean>}
+ */
+export function playClipBuffered(name) {
+  if (!isEnabled() || !clipsSupported()) return Promise.resolve(false);
+  stopClips();                               // own the timeline (latest wins)
+  const myGen = _gen;
+  try { unlockAudio(); } catch (_e) { /* ignore */ }
+  return new Promise((resolve) => {
+    let done = false, playing = false, to = null;
+    const el = new Audio();
+    _cur = el;
+    const finish = (ok) => {
+      if (done) return; done = true;
+      if (to) clearTimeout(to);
+      el.onended = null; el.onerror = null; el.oncanplaythrough = null;
+      if (myGen === _gen && _cur === el) _cur = null;
+      resolve(ok);
+    };
+    const begin = () => {
+      if (playing || done || myGen !== _gen) return;   // start once, and not after a supersede
+      playing = true;
+      const p = el.play();
+      if (p && typeof p.catch === 'function') p.catch(() => finish(false));
+    };
+    el.onended = () => finish(true);
+    el.onerror = () => finish(false);                  // missing/!decodable clip → caller falls back
+    el.oncanplaythrough = begin;                       // buffered enough → play with no clipped opening
+    try { el.preload = 'auto'; } catch (_e) { /* some envs lack the setter */ }
+    el.src = clipUrl(name);
+    try { if (typeof el.load === 'function') el.load(); } catch (_e) { /* ignore */ }
+    to = setTimeout(begin, 500);                        // safety net if canplaythrough never fires
+  });
+}
+
+/**
  * Play a SEQUENCE of clips in order with no overlap, as ONE smooth utterance. A later play/stop
  * supersedes the whole sequence (latest wins). If a clip in the sequence errors, opts.onError(name)
  * fires and the sequence stops (the caller's fallback decides what to do).
