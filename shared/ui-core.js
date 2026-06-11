@@ -91,8 +91,9 @@ export function answerPanel(choices, { mode = 'numeral', onSubmit, onHear }) {
 }
 
 /**
- * SHARED in-lesson Home/Quit control. Mounts a small ⌂ button (top-right) onto a play/trace screen.
- * Tapping it shows a child-safe confirm — "Quit lesson? Progress will be lost — Quit / Keep playing".
+ * SHARED in-lesson HOME control. Mounts a large, high-contrast house-icon button (top-right) onto a
+ * play/trace screen — the consistent "back to the game selector" control on every game.
+ * Tapping it shows a child-safe confirm — "Go back to the games? — Back to games / Keep playing".
  * Quit → onQuit() (the app stops audio + returns home); Keep playing → just dismisses the dialog and
  * resumes. Re-usable across BOTH apps so the behaviour + copy stay identical. Returns the button node.
  * @param {HTMLElement} screen the .screen wrapper of the current lesson question/trace
@@ -344,7 +345,7 @@ export function renderDone(mount, { onAgain, onHome, onRewards, lesson }) {
   const row = el('div', { class: 'home-row' });
   const stars = el('button', { class: 'btn btn-ghost' }, '🏆  My Stars');
   stars.addEventListener('click', onRewards);
-  const home = el('button', { class: 'btn btn-ghost' }, '⌂  Home');
+  const home = el('button', { class: 'btn btn-ghost' }, '🏠  Home');
   home.addEventListener('click', onHome);
   row.append(stars, home);
   wrap.append(again, row); mount.append(wrap);
@@ -393,7 +394,7 @@ export function renderRewards(mount, r, { onBack, onAlbum }) {
     wrap.append(album);
   }
 
-  const back = el('button', { class: 'btn btn-ghost' }, '⌂  Back');
+  const back = el('button', { class: 'btn btn-ghost' }, '‹  Back');
   back.addEventListener('click', onBack);
   wrap.append(back); mount.append(wrap);
 }
@@ -449,7 +450,7 @@ export function renderAlbum(mount, r, { onBack }) {
   }
   draw();
 
-  const back = el('button', { class: 'btn' }, '⌂  Back');
+  const back = el('button', { class: 'btn' }, '‹  Back');
   back.addEventListener('click', onBack);
   wrap.append(back); mount.append(wrap);
 }

@@ -1,5 +1,5 @@
 // sw.js — offline cache of the LOCAL app shell + the shared engine. No remote fetches, no tracking.
-const CACHE = 'dl-kids-letters-v7';
+const CACHE = 'dl-kids-letters-v8';
 // Bundled letter-NAME voice clips (offline, played as static files — primary voice path).
 const LETTER_CLIPS = 'abcdefghijklmnopqrstuvwxyz'.split('').map((l) => `../shared/clips/letter-${l}.mp3`);
 // Original celebratory cheer clips (offline; ride alongside the synthesized chime).
