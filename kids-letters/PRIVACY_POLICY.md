@@ -1,0 +1,30 @@
+# Privacy Policy — DL Letters (Read & Trace)
+
+**Publisher:** Digital Legends LLC (Texas) · **Contact:** randy@digital-legends-llc.com
+**Effective:** 【RANDY: date at publish】 · **App:** DL Letters — Read & Trace
+
+> **Plain-language summary:** This app collects **nothing**. It works fully offline, shows **no ads**, and sends **no data** anywhere.
+
+## What we collect
+**None.** DL Letters does **not** collect, store off-device, or transmit any personal information. It does **not** use analytics, advertising, tracking, accounts, or third-party SDKs.
+
+## On-device data
+The app saves your child's **learning progress** (which letters they've practiced) **only on this device**, using local storage. This never leaves the device and is not personal information. You can erase it anytime: **Grown-ups → Reset progress**, or by uninstalling the app.
+
+## Children's privacy (COPPA)
+DL Letters is designed for young children and is built to be **COPPA-compliant by design**: because we collect no personal information and transmit nothing, there is nothing to consent to share. We do not knowingly collect personal information from anyone, including children under 13.
+
+## Permissions
+The app requests **no sensitive permissions** (no location, no contacts, no camera/microphone, no device identifiers). It uses bundled audio clips and your device's built-in text-to-speech for sound, processed on-device.
+
+## Ads & purchases
+**No ads. No tracking. No subscriptions.** 【RANDY: if a one-time unlock is ever added, it is parent-gated and processed by the app store — we still collect no personal data.】
+
+## Changes
+If this policy changes, the updated version will be posted here and in the app store listing.
+
+## Contact
+Questions: **randy@digital-legends-llc.com**.
+
+---
+*🟨 Randy: set the effective date at publish; host this text (the Play listing requires a privacy-policy URL). For the SUITE listing, the combined `docs/playstore/privacy.html` covers all three apps. Legal review before publish.*
