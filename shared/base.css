@@ -159,9 +159,13 @@ body {
 .gate-actions { display: flex; gap: .8rem; }
 .gate-msg { color: #b45309; font-weight: 700; min-height: 1.2em; }
 
-/* in-lesson Home/Quit control (Fix 7) — small, top-right, out of the way of the play area */
-.quit-btn { position: absolute; top: .8rem; right: .8rem; z-index: 7; width: 52px; height: 52px; font-size: 1.5rem; line-height: 1; font-weight: 900; color: var(--blue-dark); background: var(--white); border: 3px solid #bfdbfe; border-radius: 50%; cursor: pointer; box-shadow: 0 4px 0 #cbd5e1; }
-.quit-btn:active { transform: translateY(3px); box-shadow: 0 1px 0 #cbd5e1; }
+/* In-game HOME button — a large, high-contrast, kid-recognizable "back to the games" control on every
+   play/trace screen (top-right corner). Solid blue + white house icon + "Home" label so it clearly
+   reads as a tappable button (the old white "⌂" circle was easy to miss / rendered as tofu on phones). */
+.quit-btn { position: absolute; top: .7rem; right: .7rem; z-index: 7; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; width: 62px; height: 64px; padding: 4px 0; color: var(--white); background: var(--blue); border: 3px solid var(--white); border-radius: 16px; cursor: pointer; box-shadow: 0 4px 0 var(--blue-dark); -webkit-tap-highlight-color: transparent; }
+.quit-btn svg { width: 30px; height: 30px; display: block; }
+.quit-btn-label { font-size: .72rem; font-weight: 800; line-height: 1; letter-spacing: .2px; }
+.quit-btn:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--blue-dark); }
 .quit-confirm { position: absolute; inset: 0; z-index: 20; display: flex; align-items: center; justify-content: center; background: rgba(15,23,42,.45); padding: 1.2rem; }
 .quit-card { background: var(--white); border-radius: var(--radius); padding: 1.6rem 1.4rem; max-width: 340px; width: 92%; box-shadow: 0 12px 40px rgba(15,23,42,.35); animation: pop .2s ease both; }
 .quit-title { font-size: 1.6rem; font-weight: 900; color: var(--blue-dark); }

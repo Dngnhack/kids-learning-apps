@@ -98,23 +98,34 @@ export function answerPanel(choices, { mode = 'numeral', onSubmit, onHear }) {
  * @param {HTMLElement} screen the .screen wrapper of the current lesson question/trace
  * @param {() => void} onQuit called when the child confirms Quit (app handles stopSpeech + home)
  */
+// A crisp, universally-recognizable HOUSE icon (the classic Material "home" silhouette). Inline SVG so
+// it renders IDENTICALLY on every phone/browser — unlike the old "⌂" glyph, which showed as a tiny,
+// unclear, or missing character on many mobile devices (kids couldn't tell it was "go home").
+const HOME_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>';
+
 export function mountQuit(screen, onQuit) {
   if (!screen) return null;
-  const btn = el('button', { class: 'quit-btn', 'aria-label': 'Quit lesson and go home', title: 'Home' }, '⌂');
+  // ONE clear "go back to the game chooser" control on every play/trace screen: a large, high-contrast,
+  // top-corner HOME button with a house icon kids understand. Tapping it asks a tiny child-safe confirm
+  // first (so a stray tap mid-trace can't drop the lesson), then returns to the game-type selector.
+  const btn = el('button', { class: 'quit-btn', 'aria-label': 'Home — go back to the games', title: 'Home' });
+  btn.innerHTML = HOME_SVG + '<span class="quit-btn-label">Home</span>';
   btn.addEventListener('click', () => showQuitConfirm(screen, onQuit));
   screen.append(btn);
   return btn;
 }
 
-/** The "Quit lesson? Progress will be lost" confirm overlay (Quit / Keep playing). */
+/** The "Go back to the games?" confirm overlay (Back to games / Keep playing). Reframed from the old
+ *  "Quit lesson? Progress will be lost" — it's a NAVIGATION choice, and learning is saved per answer
+ *  (only the current lesson is left), so the copy is clearer + reassuring rather than discouraging. */
 function showQuitConfirm(screen, onQuit) {
   if (screen.querySelector('.quit-confirm')) return;       // already open — don't stack
-  const overlay = el('div', { class: 'quit-confirm', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Quit lesson?' });
+  const overlay = el('div', { class: 'quit-confirm', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Go back to the games?' });
   const card = el('div', { class: 'quit-card' });
-  card.append(el('div', { class: 'quit-title' }, 'Quit lesson?'));
-  card.append(el('div', { class: 'quit-msg' }, 'Progress will be lost.'));
+  card.append(el('div', { class: 'quit-title' }, 'Go back to the games?'));
+  card.append(el('div', { class: 'quit-msg' }, 'Your stars are saved.'));
   const actions = el('div', { class: 'quit-actions' });
-  const quit = el('button', { class: 'btn btn-ghost quit-yes' }, '⌂  Quit');
+  const quit = el('button', { class: 'btn btn-ghost quit-yes' }, '🏠  Back to games');
   const keep = el('button', { class: 'btn quit-keep' }, '▶  Keep playing');
   quit.addEventListener('click', () => { overlay.remove(); onQuit(); });
   keep.addEventListener('click', () => overlay.remove());   // resume — nothing else changes
