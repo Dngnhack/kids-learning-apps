@@ -1,5 +1,5 @@
 // sw.js — offline cache of the LOCAL app shell + the shared engine. No remote fetches, no tracking.
-const CACHE = 'dl-kids-math-v10';
+const CACHE = 'dl-kids-math-v11';
 // Bundled number building-block voice clips — Math now speaks numbers through the shared clip seam
 // (number-speech.js), so it caches the same word clips as Numbers for offline playback.
 const NUMBER_CLIPS = [
